@@ -6,7 +6,6 @@ import numpy as np
 
 app = FastAPI()
 
-# CORS (혹시 모를 문제 방지용)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,103 +13,100 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---- SBERT 모델 로드 ----
-# 한국어 SBERT 모델 하나 선택 (무료)
 model = SentenceTransformer("snunlp/KR-SBERT-V40K-klueNLI-augSTS")
 
-ANSWER = None          # 정답 단어 (문자열)
-ANSWER_VEC = None      # 정답 임베딩 (벡터)
-submissions = []       # 모든 팀의 제출 기록
+ANSWER = None
+ANSWER_VEC = None
+submissions = []
+SIM_STATS = {}     # ← Top1, Top10, Top1000 유사도 저장
 
 
 def cosine_sim(v1, v2):
     dot = float(np.dot(v1, v2))
     norm = float(np.linalg.norm(v1) * np.linalg.norm(v2))
-    if norm == 0:
-        return 0.0
-    return dot / norm
+    return 0.0 if norm == 0 else dot / norm
+
+
+def calculate_similarity_stats(answer_word):
+    """정답과 전체 단어 중 임의의 샘플로 유사도 통계 생성"""
+    sample_words = ["사과", "자동차", "고양이", "행복", "바다", "학교", "음악", "사랑", "여행",
+                    "책상", "노트북", "커피", "강아지", "의자", "하늘", "달", "겨울", "여름"]
+
+    vecs = model.encode(sample_words, convert_to_numpy=True)
+
+    sims = []
+    for word, vec in zip(sample_words, vecs):
+        sims.append((word, cosine_sim(vec, ANSWER_VEC)))
+
+    sims.sort(key=lambda x: x[1], reverse=True)
+
+    top1 = round(sims[0][1] * 100, 2)
+    top10 = round(sims[min(9, len(sims)-1)][1] * 100, 2)
+    top1000 = round(sims[min(999, len(sims)-1)][1] * 100, 2)
+
+    return {"top1": top1, "top10": top10, "top1000": top1000}
 
 
 @app.get("/")
-def page_index():
+def index():
     return FileResponse("static/index.html")
 
 
 @app.get("/game")
-def page_game():
+def game():
     return FileResponse("static/game.html")
 
 
 @app.get("/admin")
-def page_admin():
+def admin():
     return FileResponse("static/admin.html")
 
 
-# 진행자: 정답 설정
 @app.post("/set_answer")
 def set_answer(word: str = Form(...)):
-    global ANSWER, ANSWER_VEC, submissions
+    global ANSWER, ANSWER_VEC, submissions, SIM_STATS
 
-    word = word.strip()
-    if not word:
-        return JSONResponse({"ok": False, "error": "정답 단어를 입력하세요."})
-
-    # 정답 임베딩 만들기
-    ANSWER = word
+    ANSWER = word.strip()
     ANSWER_VEC = model.encode([ANSWER], convert_to_numpy=True)[0]
+    submissions = []  # reset scoreboard
 
-    # 새 라운드 시작 → 기존 제출 기록 초기화
-    submissions = []
+    SIM_STATS = calculate_similarity_stats(ANSWER)
 
-    return JSONResponse({"ok": True, "answer": ANSWER})
+    return {
+        "ok": True,
+        "answer": ANSWER,
+        "stats": SIM_STATS
+    }
 
 
-# 팀: 단어 제출
 @app.get("/guess")
 def guess(word: str, team: str):
-    global ANSWER, ANSWER_VEC, submissions
+    global ANSWER, ANSWER_VEC
 
-    if ANSWER is None or ANSWER_VEC is None:
+    if ANSWER is None:
         return {"ok": False, "error": "아직 진행자가 정답을 설정하지 않았습니다."}
 
-    word = word.strip()
-    team = team.strip() or "이름없는 팀"
-
-    if not word:
-        return {"ok": False, "error": "단어를 입력하세요."}
-
-    # 정답인 경우
-    if word == ANSWER:
-        similarity = 100.0
-        correct = True
-    else:
-        # SBERT 유사도 계산 (보통 0~1 사이 → 0~100 점수로 스케일)
-        vec = model.encode([word], convert_to_numpy=True)[0]
-        sim_raw = cosine_sim(vec, ANSWER_VEC)  # 대략 0~1
-        similarity = max(0.0, float(sim_raw) * 100.0)
-        similarity = round(similarity, 2)
-        correct = False
+    vec = model.encode([word], convert_to_numpy=True)[0]
+    sim_raw = cosine_sim(vec, ANSWER_VEC)
+    sim_scaled = max(0, sim_raw * 100)
+    sim_scaled = round(sim_scaled, 2)
 
     submissions.append({
         "team": team,
         "word": word,
-        "similarity": similarity,
+        "similarity": sim_scaled,
     })
 
-    return {
-        "ok": True,
-        "correct": correct,
-        "similarity": similarity,
-    }
+    return {"ok": True, "similarity": sim_scaled}
 
 
-# 리더보드: 유사도 높은 순
 @app.get("/leaderboard")
 def leaderboard():
-    # similarity 높은 순으로 정렬
-    sorted_list = sorted(
-        submissions,
-        key=lambda x: x["similarity"],
-        reverse=True
-    )
-    return {"ok": True, "leaderboard": sorted_list}
+
+    sorted_list = sorted(submissions, key=lambda x: x["similarity"], reverse=True)
+
+    for idx, row in enumerate(sorted_list):
+        rank = idx + 1
+        row["rank"] = rank if rank <= 999 else "1000위 이상"
+
+    return {"ok": True, "leaderboard": sorted_list, "stats": SIM_STATS}
