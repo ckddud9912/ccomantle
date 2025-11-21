@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>꼬맨틀 - 팀 선택</title>
+<style>
+    body { font-family: Arial; padding: 40px; }
+    input { padding: 10px; width: 250px; font-size: 18px; }
+    button { padding: 10px 20px; font-size: 18px; }
+</style>
+</head>
+<body>
+
+<h2>팀 이름을 입력하세요</h2>
+
+<input id="team" placeholder="예: 블루팀">
+<button onclick="go()">입장하기</button>
+
+<script>
+function go() {
+    const t = document.getElementById("team").value.trim();
+    if(!t) { alert("팀 이름 입력!"); return; }
+    location.href = `/game?team=${encodeURIComponent(t)}`;
+}
+</script>
+
+</body>
+</html>
