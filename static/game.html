@@ -17,8 +17,9 @@ body { background:#f5f5f5; font-family:Arial; display:flex; justify-content:cent
     border-radius:10px; border:1px solid #ccc; margin-bottom:20px;
 }
 
-table { width:100%; margin-top:10px; border-collapse:collapse; }
+table { width:100%; margin-top:10px; border-collapse:collapse; text-align:center; }
 th, td { padding:10px; border-bottom:1px solid #ddd; font-size:14px; }
+
 th { background:#f0f0f0; }
 
 .progress {
@@ -27,6 +28,15 @@ th { background:#f0f0f0; }
 .progress_inner {
     height:100%; background:#4b9cfc;
 }
+
+.hintbox {
+    background:#eef6ff;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:25px;
+    line-height:1.5;
+}
+.hint_title { font-weight:bold; margin-bottom:6px; }
 </style>
 
 </head>
@@ -34,6 +44,20 @@ th { background:#f0f0f0; }
 
 <div class="container">
     <h2 id="team_label"></h2>
+
+    <!-- 유사도 안내 문구 -->
+    <div class="hintbox">
+        <div class="hint_title">📘 유사도 안내</div>
+        정답 단어와 가장 유사한 단어의 유사도는 <b>의미적으로 얼마나 가까운지</b>를 나타내며  
+        점수는 <b>0에서 100까지</b>입니다.  
+        점수가 높을수록 정답과 더 비슷한 의미를 가진 단어입니다.
+        <br><br>
+        상위권 유사도 예시는 다음과 같습니다:
+        <br>
+        - TOP 1 유사도: 예시 72.63  
+        - TOP 10 유사도: 예시 57.65  
+        - TOP 1000 유사도: 예시 26.69  
+    </div>
 
     <input id="guess" class="inputbox" placeholder="단어를 입력하고 Enter를 누르세요">
 
@@ -50,6 +74,20 @@ th { background:#f0f0f0; }
         </thead>
         <tbody id="leaderBody"></tbody>
     </table>
+
+    <br><br>
+
+    <!-- 유사도 설명 섹션 -->
+    <h3>❓ 유사도는 무엇인가요?</h3>
+    <div class="hintbox">
+        <ul style="padding-left:20px; line-height:1.7;">
+            <li>꼬맨틀에서 유사도는 추측한 단어와 정답 단어가 <b>의미적으로 얼마나 비슷한지</b>를 나타내는 지표입니다.</li>
+            <li>점수는 <b>0점에서 100점</b> 사이이며, 점수가 높을수록 두 단어가 의미적으로 더 유사합니다.</li>
+            <li>본 게임에서는 <b>한국어 SBERT(Sentence-BERT)</b> 임베딩 모델을 사용하여 두 단어의 벡터 유사도를 계산합니다.</li>
+            <li>리더보드에는 상위 유사도 단어들이 실시간으로 표시됩니다.</li>
+        </ul>
+    </div>
+
 </div>
 
 <script>
