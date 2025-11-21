@@ -2,25 +2,29 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>꼬맨틀 - 팀 선택</title>
+<title>팀 이름 입력</title>
 <style>
-    body { font-family: Arial; padding: 40px; }
-    input { padding: 10px; width: 250px; font-size: 18px; }
-    button { padding: 10px 20px; font-size: 18px; }
+body { font-family: Arial; display:flex; justify-content:center; margin-top:120px; background:#f5f5f5; }
+.box { width:380px; padding:30px; background:white; border-radius:12px; box-shadow:0 3px 12px rgba(0,0,0,0.1); }
+input, button { width:100%; padding:12px; margin-top:10px; border-radius:8px; font-size:16px; }
+button { background:#4299e1; color:white; border:none; cursor:pointer; }
+button:hover { background:#3182ce; }
 </style>
 </head>
+
 <body>
-
-<h2>팀 이름을 입력하세요</h2>
-
-<input id="team" placeholder="예: 블루팀">
-<button onclick="go()">입장하기</button>
+<div class="box">
+    <h2>팀 이름을 입력하세요</h2>
+    <input id="team" placeholder="예: 어스컴퍼니 팀 A">
+    <button onclick="goGame()">게임 시작</button>
+</div>
 
 <script>
-function go() {
+function goGame() {
     const t = document.getElementById("team").value.trim();
-    if(!t) { alert("팀 이름 입력!"); return; }
-    location.href = `/game?team=${encodeURIComponent(t)}`;
+    if (!t) { alert("팀 이름을 입력하세요"); return; }
+    localStorage.setItem("team_name", t);
+    location.href = "/game";
 }
 </script>
 
