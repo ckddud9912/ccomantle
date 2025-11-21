@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>진행자: 정답 설정</title>
+<style>
+body { font-family:Arial; display:flex; justify-content:center; margin-top:100px; background:#f5f5f5; }
+.box { width:400px; padding:30px; background:white; border-radius:12px; box-shadow:0 3px 12px rgba(0,0,0,0.1); }
+input, button { width:100%; padding:12px; margin-top:10px; border-radius:8px; font-size:16px; }
+button { background:#4caf50; color:white; border:none; cursor:pointer; }
+button:hover { background:#43a047; }
+#msg { margin-top:15px; font-weight:bold; white-space:pre-line; }
+</style>
+</head>
+
+<body>
+
+<div class="box">
+    <h2>정답 설정 (진행자 전용)</h2>
+
+    <input id="answer" placeholder="정답 단어 입력">
+    <button onclick="setAnswer()">저장</button>
+
+    <div id="msg"></div>
+</div>
+
+<script>
+async function setAnswer() {
+    const w = document.getElementById("answer").value.trim();
+    const fd = new FormData();
+    fd.append("word", w);
+
+    const r = await fetch("/set_answer", { method:"POST", body: fd });
+    const data = await r.json();
+
+    if (!data.ok) {
+        document.getElementById("msg").innerText = "❌ " + data.error;
+    } else {
+        document.getElementById("msg").innerText =
+            "✔ 정답 설정됨: " + data.answer + "\n기존 리더보드는 초기화되었습니다.";
+    }
+}
+</script>
+
+</body>
+</html>
