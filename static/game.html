@@ -3,45 +3,109 @@
 <head>
 <meta charset="UTF-8">
 <title>꼬맨틀 게임</title>
+
 <style>
-    body { font-family: Arial; padding: 40px; }
-    #log div { padding: 8px; border-bottom: 1px solid #ddd; }
+body { background:#f5f5f5; font-family:Arial; display:flex; justify-content:center; }
+
+.container {
+    width:900px; background:white; margin-top:40px; padding:30px;
+    border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.05);
+}
+
+.inputbox {
+    width:100%; padding:14px; font-size:17px;
+    border-radius:10px; border:1px solid #ccc; margin-bottom:20px;
+}
+
+table { width:100%; margin-top:10px; border-collapse:collapse; }
+th, td { padding:10px; border-bottom:1px solid #ddd; font-size:14px; }
+th { background:#f0f0f0; }
+
+.progress {
+    width:150px; height:12px; background:#ddd; border-radius:6px; overflow:hidden;
+}
+.progress_inner {
+    height:100%; background:#4b9cfc;
+}
 </style>
+
 </head>
 <body>
 
-<h2 id="teamName"></h2>
+<div class="container">
+    <h2 id="team_label"></h2>
 
-<input id="word" placeholder="단어 입력" style="padding:10px; width:250px; font-size:18px;">
-<button onclick="send()">제출</button>
+    <input id="guess" class="inputbox" placeholder="단어를 입력하고 Enter를 누르세요">
 
-<div id="log" style="margin-top:20px;"></div>
+    <h3>📊 리더보드 (유사도 높은 순)</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>팀</th>
+                <th>단어</th>
+                <th>유사도</th>
+                <th>강도</th>
+            </tr>
+        </thead>
+        <tbody id="leaderBody"></tbody>
+    </table>
+</div>
 
 <script>
-const params = new URLSearchParams(location.search);
-const team = params.get("team") || "이름없는 팀";
+const teamName = localStorage.getItem("team_name") || "미등록 팀";
+document.getElementById("team_label").innerText = "팀: " + teamName;
 
-document.getElementById("teamName").innerText = `팀: ${team}`;
+const input = document.getElementById("guess");
+const leaderBody = document.getElementById("leaderBody");
 
-async function send() {
-    const w = document.getElementById("word").value.trim();
-    if(!w) return;
+// 단어 제출
+input.addEventListener("keydown", async (e) => {
+    if (e.key === "Enter") {
+        const word = input.value.trim();
+        if (!word) return;
 
-    const res = await fetch(`/guess?word=${encodeURIComponent(w)}&team=${encodeURIComponent(team)}`);
-    const data = await res.json();
+        const r = await fetch(`/guess?word=${encodeURIComponent(word)}&team=${encodeURIComponent(teamName)}`);
+        const data = await r.json();
 
-    let div = document.createElement("div");
-
-    if(data.correct) {
-        div.innerHTML = `🎉 정답: ${w} → 유사도 100`;
-    } else {
-        div.innerHTML = `${w} → 유사도: ${data.similarity}`;
+        if (!data.ok) {
+            alert(data.error);
+            return;
+        }
+        input.value = "";
     }
+});
 
-    document.getElementById("log").prepend(div);
+// 리더보드 자동 갱신
+async function updateLeaderboard() {
+    const r = await fetch("/leaderboard");
+    const data = await r.json();
 
-    document.getElementById("word").value = "";
+    if (!data.ok) return;
+
+    leaderBody.innerHTML = "";
+
+    data.leaderboard.forEach(row => {
+        const tr = document.createElement("tr");
+
+        const barPercent = Math.max(0, Math.min(100, row.similarity)); // 0~100
+
+        tr.innerHTML = `
+            <td>${row.team}</td>
+            <td>${row.word}</td>
+            <td>${row.similarity}</td>
+            <td>
+                <div class="progress">
+                    <div class="progress_inner" style="width:${barPercent}%"></div>
+                </div>
+            </td>
+        `;
+
+        leaderBody.appendChild(tr);
+    });
 }
+
+setInterval(updateLeaderboard, 1000);
 </script>
 
 </body>
