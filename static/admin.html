@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>꼬맨틀 진행자</title>
+<style>
+    body { font-family: Arial; padding: 40px; }
+    input { padding: 10px; width: 250px; font-size: 18px; }
+    button { padding: 10px 20px; font-size: 18px; }
+    #board div { padding: 8px; border-bottom: 1px solid #ddd; }
+</style>
+</head>
+<body>
+
+<h2>정답 설정</h2>
+
+<input id="answer" placeholder="정답 단어 입력">
+<button onclick="setAnswer()">저장</button>
+
+<h2 style="margin-top:40px;">리더보드</h2>
+<div id="board"></div>
+
+<script>
+async function setAnswer() {
+    const word = document.getElementById("answer").value.trim();
+    if(!word) return alert("정답 단어 입력!");
+
+    const formData = new FormData();
+    formData.append("word", word);
+
+    const res = await fetch("/set_answer", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await res.json();
+    if(!data.ok) alert(data.error);
+    else alert("정답 설정 완료!");
+}
+
+// 실시간 리더보드 1초마다 갱신
+setInterval(async () => {
+    const res = await fetch("/leaderboard");
+    const data = await res.json();
+
+    const box = document.getElementById("board");
+    box.innerHTML = "";
+
+    if(!data.ok) return;
+
+    data.leaderboard.forEach((item, i) => {
+        const div = document.createElement("div");
+        div.innerHTML = `${i+1}위 | ${item.team} → ${item.word} (유사도: ${item.similarity})`;
+        box.append(div);
+    });
+}, 1000);
+</script>
+
+</body>
+</html>
