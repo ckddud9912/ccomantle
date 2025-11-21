@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>꼬맨틀 게임</title>
+<style>
+    body { font-family: Arial; padding: 40px; }
+    #log div { padding: 8px; border-bottom: 1px solid #ddd; }
+</style>
+</head>
+<body>
+
+<h2 id="teamName"></h2>
+
+<input id="word" placeholder="단어 입력" style="padding:10px; width:250px; font-size:18px;">
+<button onclick="send()">제출</button>
+
+<div id="log" style="margin-top:20px;"></div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const team = params.get("team") || "이름없는 팀";
+
+document.getElementById("teamName").innerText = `팀: ${team}`;
+
+async function send() {
+    const w = document.getElementById("word").value.trim();
+    if(!w) return;
+
+    const res = await fetch(`/guess?word=${encodeURIComponent(w)}&team=${encodeURIComponent(team)}`);
+    const data = await res.json();
+
+    let div = document.createElement("div");
+
+    if(data.correct) {
+        div.innerHTML = `🎉 정답: ${w} → 유사도 100`;
+    } else {
+        div.innerHTML = `${w} → 유사도: ${data.similarity}`;
+    }
+
+    document.getElementById("log").prepend(div);
+
+    document.getElementById("word").value = "";
+}
+</script>
+
+</body>
+</html>
