@@ -27,17 +27,30 @@ button:hover { background:#43a047; }
 <script>
 async function setAnswer() {
     const w = document.getElementById("answer").value.trim();
+    if (!w) {
+        document.getElementById("msg").innerText = "❌ 정답을 입력하세요!";
+        return;
+    }
+
     const fd = new FormData();
     fd.append("word", w);
 
-    const r = await fetch("/set_answer", { method:"POST", body: fd });
-    const data = await r.json();
+    const r = await fetch(window.location.origin + "/set_answer", {
+        method: "POST",
+        body: fd
+    });
 
-    if (!data.ok) {
-        document.getElementById("msg").innerText = "❌ " + data.error;
-    } else {
-        document.getElementById("msg").innerText =
-            "✔ 정답 설정됨: " + data.answer + "\n기존 리더보드는 초기화되었습니다.";
+    try {
+        const data = await r.json();
+
+        if (!data.ok) {
+            document.getElementById("msg").innerText = "❌ " + data.error;
+        } else {
+            document.getElementById("msg").innerText =
+                "✔ 정답 설정됨: " + data.answer + "\n리더보드 초기화 완료!";
+        }
+    } catch {
+        document.getElementById("msg").innerText = "⚠ 서버 응답 오류 — 다시 시도해주세요.";
     }
 }
 </script>
