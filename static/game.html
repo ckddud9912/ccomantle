@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>꼬맨틀 확장판</title>
+<title>꼬맨틀 게임</title>
 
 <style>
 body { background:#f5f5f5; font-family:Arial; display:flex; justify-content:center; }
@@ -19,12 +19,14 @@ th, td { padding:12px; border-bottom:1px solid #ddd; text-align:center; }
 th { background:#eee; }
 
 .progress {
-    height:12px; background:#ddd; border-radius:6px; overflow:hidden;
+    width:180px; height:12px; background:#ddd; border-radius:6px; overflow:hidden;
+    margin-top:4px;
 }
 .progress_inner {
     height:100%; background:#4b9cfc;
 }
-#sim_info { margin:15px 0; font-size:14px; color:#444; line-height:1.6; }
+
+#sim_info { margin:10px 0 20px; font-size:14px; line-height:1.6; }
 </style>
 </head>
 
@@ -33,9 +35,13 @@ th { background:#eee; }
 <div class="container">
     <h2 id="team_label"></h2>
 
-    <div id="sim_info"></div>
+    <div id="sim_info">
+        정답 단어와 가장 유사한 단어의 유사도는 <b>-</b> 입니다.<br>
+        10번째로 유사한 단어의 유사도는 <b>-</b>이고,<br>
+        1,000번째로 유사한 단어의 유사도는 <b>-</b> 입니다.
+    </div>
 
-    <input id="guess" class="inputbox" placeholder="단어 입력 후 Enter">
+    <input id="guess" class="inputbox" placeholder="단어를 입력하고 Enter를 누르세요">
 
     <table>
         <thead>
@@ -43,7 +49,7 @@ th { background:#eee; }
                 <th>팀</th>
                 <th>단어</th>
                 <th>유사도</th>
-                <th>유사도 순위 + 그래프</th>
+                <th>유사도 순위</th>
             </tr>
         </thead>
         <tbody id="leaderBody"></tbody>
@@ -51,31 +57,42 @@ th { background:#eee; }
 </div>
 
 <script>
-const teamName = localStorage.getItem("team_name") || "팀 미등록";
-
+const teamName = localStorage.getItem("team_name") || "미등록 팀";
 document.getElementById("team_label").innerText = "팀: " + teamName;
+
 const input = document.getElementById("guess");
-const leaderBody = document.getElementById("leaderBody");
+const body = document.getElementById("leaderBody");
 const simInfo = document.getElementById("sim_info");
 
+// 단어 제출
 input.addEventListener("keydown", async (e) => {
     if (e.key === "Enter") {
         const word = input.value.trim();
         if (!word) return;
 
-        await fetch(`/guess?word=${word}&team=${encodeURIComponent(teamName)}`);
+        await fetch(`/guess?word=${encodeURIComponent(word)}&team=${encodeURIComponent(teamName)}`);
         input.value = "";
     }
 });
 
-async function loadBoard() {
-    const r = await fetch("/leaderboard");
-    const data = await r.json();
+// 리더보드 & 유사도 안내 갱신
+async function refresh() {
+    const res = await fetch("/leaderboard");
+    const data = await res.json();
+    if (!data.ok) return;
 
-    leaderBody.innerHTML = "";
+    // 유사도 안내 문구
+    const s = data.stats || {};
+    simInfo.innerHTML = `
+        정답 단어와 가장 유사한 단어의 유사도는 <b>${s.top1}</b> 입니다.<br>
+        10번째로 유사한 단어의 유사도는 <b>${s.top10}</b>이고,<br>
+        1,000번째로 유사한 단어의 유사도는 <b>${s.top1000}</b> 입니다.
+    `;
 
-    data.leaderboard.forEach(row => {
-        const rankVal = row.rank === "1000위 이상" ? 1000 : row.rank;
+    // 리더보드
+    body.innerHTML = "";
+    (data.leaderboard || []).forEach(row => {
+        const rankVal = (row.rank === "1000위 이상") ? 1000 : row.rank;
         const percent = Math.max(5, (1000 - rankVal) / 1000 * 100);
 
         const tr = document.createElement("tr");
@@ -86,15 +103,15 @@ async function loadBoard() {
             <td>
                 ${row.rank}
                 <div class="progress">
-                    <div class="progress_inner" style="width:${percent}%"></div>
+                    <div class="progress_inner" style="width:${percent}%;"></div>
                 </div>
             </td>
         `;
-        leaderBody.appendChild(tr);
+        body.appendChild(tr);
     });
 }
 
-setInterval(loadBoard, 1200);
+setInterval(refresh, 1200);
 </script>
 
 </body>
