@@ -1,6 +1,4 @@
 fastapi
 uvicorn
-sentence-transformers
-torch
+fasttext
 numpy
-python-multipart
