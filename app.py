@@ -4,10 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-import fasttext
-
 app = FastAPI()
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,33 +14,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- 모델 로드 ---
-ft = fasttext.load_model("cc.ko.300.bin")      # FastText 한국어 사전
-sbert = SentenceTransformer("snunlp/KR-SBERT-V40K-klueNLI-augSTS")  # SBERT 백업 모델
+# ---- SBERT 한국어 모델 (허깅페이스에서 자동 다운로드) ----
+model = SentenceTransformer("snunlp/KR-SBERT-V40K-klueNLI-augSTS")
 
-ANSWER = None
-ANSWER_VEC = None
-submissions = []
+ANSWER = None          # 정답 단어 (문자열)
+ANSWER_VEC = None      # 정답 임베딩 벡터
+submissions = []       # {team, word, similarity} 리스트
+
 
 def encode_word(word: str) -> np.ndarray:
-    """
-    FastText 사전에 있으면 FastText vector
-    없으면 SBERT vector 로 대체
-    """
-    try:
-        vec = ft.get_word_vector(word)
-        if vec is not None and np.linalg.norm(vec) > 0:
-            return vec
-    except:
-        pass
-
-    return sbert.encode([word], convert_to_numpy=True)[0]
+    """SBERT 임베딩 생성"""
+    return model.encode([word], convert_to_numpy=True)[0]
 
 
 def cosine_to_score(cosine: float) -> float:
-    """꼬맨틀 스타일 점수 -20 ~ +70 근사"""
+    """
+    cosine(-1~1) → 점수(-20 ~ 70)로 변환
+    원조 꼬맨틀 느낌 나도록 대략적인 스케일 조정
+    """
     score = (cosine + 0.2) * 70
-    return round(float(max(-20, min(70, score))), 2)
+    score = max(-20.0, min(70.0, score))
+    return round(float(score), 2)
 
 
 @app.get("/")
@@ -59,42 +52,60 @@ def page_admin():
     return FileResponse("static/admin.html")
 
 
+# ---------- 진행자: 정답 설정 ----------
 @app.post("/set_answer")
 def set_answer(word: str = Form(...)):
     global ANSWER, ANSWER_VEC, submissions
+
     word = word.strip()
     if not word:
         return JSONResponse({"ok": False, "error": "정답 단어를 입력하세요."})
 
     ANSWER = word
     ANSWER_VEC = encode_word(word)
+
+    # 새 라운드 시작 → 기존 리더보드 초기화
     submissions = []
-    return {"ok": True, "answer": word}
+
+    return JSONResponse({"ok": True, "answer": ANSWER})
 
 
+# ---------- 참가자: 단어 제출 ----------
 @app.get("/guess")
 def guess(word: str, team: str):
     global ANSWER, ANSWER_VEC, submissions
-    if ANSWER is None:
-        return {"ok": False, "error": "아직 정답이 설정되지 않았습니다."}
+
+    if ANSWER is None or ANSWER_VEC is None:
+        return JSONResponse({"ok": False, "error": "아직 진행자가 정답을 설정하지 않았습니다."})
 
     word = word.strip()
-    team = team.strip() or "이름없는 팀"
-    vec = encode_word(word)
+    team = (team or "").strip() or "이름없는 팀"
 
-    cos = float(np.dot(vec, ANSWER_VEC) / (np.linalg.norm(vec) * np.linalg.norm(ANSWER_VEC)))
-    similarity = cosine_to_score(cos)
+    if not word:
+        return JSONResponse({"ok": False, "error": "단어를 입력하세요."})
+
+    # 정답인 경우
+    if word == ANSWER:
+        similarity = 70.0  # 스케일 상 최댓값으로 처리
+    else:
+        vec = encode_word(word)
+        cosine = float(np.dot(vec, ANSWER_VEC) /
+                       (np.linalg.norm(vec) * np.linalg.norm(ANSWER_VEC)))
+        similarity = cosine_to_score(cosine)
 
     submissions.append({
         "team": team,
         "word": word,
-        "similarity": similarity
+        "similarity": similarity,
     })
+
+    # 유사도 높은 순으로 정렬
     submissions.sort(key=lambda x: x["similarity"], reverse=True)
 
-    return {"ok": True, "similarity": similarity}
+    return JSONResponse({"ok": True, "similarity": similarity})
 
 
+# ---------- 리더보드 ----------
 @app.get("/leaderboard")
 def leaderboard():
-    return {"ok": True, "leaderboard": submissions}
+    return JSONResponse({"ok": True, "leaderboard": submissions})
