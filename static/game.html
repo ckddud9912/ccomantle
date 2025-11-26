@@ -1,54 +1,300 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>게임</title>
+    <meta charset="UTF-8" />
+    <title>꼬맨틀 코리아 - 게임</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            margin: 0;
+            padding: 24px;
+            background: #020617;
+            color: #e5e7eb;
+        }
+        .layout {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1.2fr 1.5fr;
+            gap: 24px;
+        }
+        h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #9ca3af;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: #020617;
+            border-radius: 16px;
+            padding: 16px 20px;
+            border: 1px solid #1f2937;
+        }
+        label {
+            font-size: 14px;
+            color: #9ca3af;
+            display: block;
+            margin-bottom: 4px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 9999px;
+            border: 1px solid #374151;
+            background: #020617;
+            color: #e5e7eb;
+            margin-bottom: 12px;
+            outline: none;
+        }
+        input[type="text"]:focus {
+            border-color: #facc15;
+        }
+        button {
+            padding: 10px 18px;
+            border-radius: 9999px;
+            border: none;
+            background: #facc15;
+            color: #111827;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+        .result {
+            margin-top: 16px;
+            font-size: 14px;
+        }
+        .highlight {
+            font-weight: 700;
+            color: #facc15;
+        }
+        .bar-wrapper {
+            margin-top: 12px;
+        }
+        .bar-label {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-bottom: 4px;
+        }
+        .bar-bg {
+            width: 100%;
+            height: 10px;
+            border-radius: 9999px;
+            background: #111827;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #22c55e, #facc15, #ef4444);
+            transition: width 0.4s ease-out;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #111827;
+        }
+        th {
+            text-align: left;
+            color: #9ca3af;
+        }
+        tr:nth-child(1) td {
+            color: #facc15;
+            font-weight: 600;
+        }
+        .stat-row {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-bottom: 6px;
+        }
+        .error {
+            margin-top: 8px;
+            font-size: 13px;
+            color: #f87171;
+        }
+    </style>
 </head>
 <body>
-    <h1>게임 화면</h1>
+<div class="layout">
+    <div>
+        <h1>🎮 꼬맨틀 게임</h1>
+        <div class="subtitle">
+            팀 이름과 단어를 입력하면, 정답과의 <strong>유사도 순위</strong>를 확인할 수 있습니다.
+        </div>
 
-    <input id="team" placeholder="팀 이름 입력">
-    <input id="word" placeholder="단어 입력">
-    <button onclick="sendGuess()">제출</button>
+        <div class="card">
+            <label for="team-input">팀 이름</label>
+            <input id="team-input" type="text" placeholder="예) 1팀 / 개발팀 / A조" />
 
-    <p id="result"></p>
+            <label for="word-input">제출 단어</label>
+            <input id="word-input" type="text" placeholder="연상되는 아무 단어나 입력하세요" />
 
-    <h3>Leaderboard</h3>
-    <div id="lb"></div>
+            <button id="submit-btn" onclick="sendGuess()">제출하기</button>
+            <div id="error-box" class="error"></div>
+
+            <div id="result-box" class="result"></div>
+
+            <div class="bar-wrapper">
+                <div class="bar-label" id="rank-explain">
+                    아직 제출된 단어가 없습니다. 첫 번째 단어를 던져보세요!
+                </div>
+                <div class="bar-bg">
+                    <div class="bar-fill" id="rank-bar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <h2 style="font-size: 18px; margin-bottom: 12px;">🏆 실시간 유사도 리더보드</h2>
+        <div class="card">
+            <div id="lb-meta" style="margin-bottom: 12px; font-size: 13px; color: #9ca3af;">
+                데이터를 불러오는 중입니다...
+            </div>
+            <div style="max-height: 420px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">순위</th>
+                            <th style="width: 120px;">팀</th>
+                            <th>단어</th>
+                            <th style="width: 80px; text-align:right;">점수</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lb-body">
+                        <tr><td colspan="4">아직 제출된 단어가 없습니다.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
+let lastLeaderboardCount = 0;
+
+function safeNumber(value, fallbackText = "-") {
+    if (value === null || value === undefined) return fallbackText;
+    if (typeof value !== "number" || isNaN(value)) return fallbackText;
+    return value.toFixed(2);
+}
+
 async function sendGuess() {
-    const team = document.getElementById("team").value;
-    const word = document.getElementById("word").value;
+    const teamInput = document.getElementById("team-input");
+    const wordInput = document.getElementById("word-input");
+    const submitBtn = document.getElementById("submit-btn");
+    const errorBox = document.getElementById("error-box");
+    const resultBox = document.getElementById("result-box");
 
-    let r = await fetch(`/guess?word=${word}&team=${team}`);
-    let j = await r.json();
+    const team = teamInput.value.trim() || "팀";
+    const word = wordInput.value.trim();
 
-    document.getElementById("result").innerHTML =
-        `${j.team} / ${j.word} → 점수 ${j.score}, 순위 ${j.rank}`;
+    errorBox.textContent = "";
+    if (!word) {
+        errorBox.textContent = "단어를 입력해 주세요.";
+        return;
+    }
 
-    updateLB();
+    submitBtn.disabled = true;
+
+    try {
+        const res = await fetch(`/guess?word=${encodeURIComponent(word)}&team=${encodeURIComponent(team)}`);
+        const data = await res.json();
+
+        if (!data.ok) {
+            errorBox.textContent = data.error || "제출 중 오류가 발생했습니다.";
+            submitBtn.disabled = false;
+            return;
+        }
+
+        const scoreText = typeof data.score === "number" ? data.score.toFixed(2) : data.score;
+        resultBox.innerHTML =
+            `<span class="highlight">[${data.team}] ${data.word}</span> → ` +
+            `점수 <span class="highlight">${scoreText}</span>, ` +
+            `현재 순위 <span class="highlight">${data.rank}위</span>`;
+
+        updateRankBar(data.rank);
+        await refreshLeaderboard();
+        wordInput.value = "";
+        wordInput.focus();
+    } catch (e) {
+        console.error(e);
+        errorBox.textContent = "서버와 통신 중 문제가 발생했습니다.";
+    } finally {
+        submitBtn.disabled = false;
+    }
 }
 
-async function updateLB() {
-    let r = await fetch("/leaderboard");
-    let j = await r.json();
+function updateRankBar(rank) {
+    const lbSize = lastLeaderboardCount;
+    const rankBar = document.getElementById("rank-bar");
+    const explain = document.getElementById("rank-explain");
 
-    let html = `
-        최고 점수: ${j.best ?? '-'}<br>
-        10위 점수: ${j.tenth ?? '-'}<br>
-        1000위 점수: ${j.thousandth ?? '-'}<br><br>
-    `;
+    if (!lbSize || !rank || typeof rank !== "number") {
+        rankBar.style.width = "0%";
+        explain.textContent = "아직 리더보드 정보가 부족합니다.";
+        return;
+    }
 
-    j.leaderboard.forEach((e, i) => {
-        html += `${i+1}. [${e.team}] ${e.word} → ${e.score}<br>`;
-    });
+    const ratio = 1 - (rank - 1) / lbSize;
+    const pct = Math.max(0, Math.min(1, ratio)) * 100;
+    rankBar.style.width = pct.toFixed(1) + "%";
 
-    document.getElementById("lb").innerHTML = html;
+    if (rank === 1) {
+        explain.textContent = "현재 1위! 정답에 가장 가까운 단어입니다.";
+    } else if (pct >= 66) {
+        explain.textContent = `상위 ${Math.round((rank / lbSize) * 100)}% 안에 든 단어입니다. 아주 유력해요.`;
+    } else if (pct >= 33) {
+        explain.textContent = `중위권입니다. 방향은 맞을 수도, 아닐 수도... 조금 더 탐색해보세요.`;
+    } else {
+        explain.textContent = `하위권입니다. 다른 쪽으로 과감하게 방향을 틀어보는 건 어떨까요?`;
+    }
 }
 
-setInterval(updateLB, 2000);
-</script>
+async function refreshLeaderboard() {
+    const lbMeta = document.getElementById("lb-meta");
+    const lbBody = document.getElementById("lb-body");
 
-</body>
-</html>
+    try {
+        const res = await fetch("/leaderboard");
+        const data = await res.json();
+
+        if (!data.ok) {
+            lbMeta.textContent = "리더보드 정보를 불러오지 못했습니다.";
+            return;
+        }
+
+        const best = safeNumber(data.best, "-");
+        const tenth = safeNumber(data.tenth, "-");
+        const thousandth = safeNumber(data.thousandth, "-");
+
+        lbMeta.innerHTML =
+            `<div class="stat-row">현재 최고점: <span class="highlight">${best}</span></div>` +
+            `<div class="stat-row">10위 점수: <span class="highlight">${tenth}</span></div>` +
+            `<div class="stat-row">1000위 점수: <span class="highlight">${thousandth}</span></div>`;
+
+        const list = Array.isArray(data.leaderboard) ? data.leaderboard : [];
+        lastLeaderboardCount = list.length;
+
+        if (list.length === 0) {
+            lbBody.innerHTML = `<tr><td colspan="4">아직 제출된 단어가 없습니다.</td></tr>`;
+            return;
+        }
+
+        lbBody.innerHTML = list
+            .map(item => {
+                const rank = item.rank ?? "-";
+                const team = item.team ?? "";
+                const word = item.word ?? "";
+                const score = typeof item.score === "number" ? item.score.toFixed(2) : item.score;
+                return `
+                    <tr>
+                        <td>${rank}</td>
