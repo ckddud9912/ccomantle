@@ -1,32 +1,107 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>관리자</title>
+    <meta charset="UTF-8" />
+    <title>꼬맨틀 코리아 - 관리자</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            margin: 0;
+            padding: 32px 24px;
+            background: #0b1120;
+            color: #e5e7eb;
+        }
+        .container {
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 26px;
+            margin-bottom: 4px;
+        }
+        .subtitle {
+            color: #9ca3af;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: #020617;
+            border-radius: 16px;
+            padding: 20px 22px;
+            border: 1px solid #1f2937;
+        }
+        label {
+            font-size: 14px;
+            color: #9ca3af;
+            display: block;
+            margin-bottom: 4px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 9999px;
+            border: 1px solid #374151;
+            background: #020617;
+            color: #e5e7eb;
+            margin-bottom: 12px;
+            outline: none;
+        }
+        input[type="text"]:focus {
+            border-color: #facc15;
+        }
+        button {
+            padding: 10px 18px;
+            border-radius: 9999px;
+            border: none;
+            background: #facc15;
+            color: #111827;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+        .msg {
+            margin-top: 12px;
+            font-size: 14px;
+        }
+        .msg.ok {
+            color: #bbf7d0;
+        }
+        .msg.error {
+            color: #fecaca;
+        }
+        .hint {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-top: 8px;
+        }
+    </style>
 </head>
 <body>
-    <h1>정답 설정</h1>
-    <input id="answer" placeholder="정답 단어">
-    <button onclick="setAnswer()">저장</button>
+<div class="container">
+    <h1>🛠 관리자 페이지</h1>
+    <div class="subtitle">
+        오늘의 <strong>정답 단어</strong>를 설정하면, 게임 화면에서 모든 팀이 그 단어를 기준으로 유사도 점수를 받게 됩니다.
+    </div>
 
-    <p id="msg"></p>
+    <div class="card">
+        <label for="answer-input">정답 단어</label>
+        <input id="answer-input" type="text" placeholder="예) 바다 / 햇빛 / 회식 / 팀워크" />
+
+        <button id="set-btn" onclick="setAnswer()">정답 설정하기</button>
+
+        <div id="msg-box" class="msg"></div>
+
+        <div class="hint">
+            - 정답을 바꾸면 기존 리더보드는 초기화됩니다.<br />
+            - 방송/행사 시작 전에 미리 한 번 설정해 두세요.
+        </div>
+    </div>
+</div>
 
 <script>
 async function setAnswer() {
-    let answer = document.getElementById("answer").value;
-
-    let r = await fetch("/set_answer", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({answer})
-    });
-
-    let j = await r.json();
-
-    document.getElementById("msg").innerText =
-        "정답 설정 완료: " + j.answer;
-}
-</script>
-
-</body>
-</html>
+    const input = document.getElementById("answer-input");
+    const btn = document.getElementById("set-btn");
+    const msg = doc
