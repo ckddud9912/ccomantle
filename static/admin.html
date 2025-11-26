@@ -1,104 +1,32 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>진행자: 정답 설정</title>
-<style>
-body {
-    font-family: Arial, sans-serif;
-    background:#f5f5f5;
-    display:flex;
-    justify-content:center;
-    margin-top:100px;
-}
-.box {
-    width:420px;
-    padding:30px;
-    background:white;
-    border-radius:12px;
-    box-shadow:0 3px 12px rgba(0,0,0,0.1);
-}
-h2 { margin-top:0; }
-input, button {
-    width:100%;
-    padding:12px;
-    margin-top:10px;
-    border-radius:8px;
-    font-size:16px;
-    box-sizing:border-box;
-}
-input {
-    border:1px solid #ccc;
-}
-button {
-    background:#4caf50;
-    color:white;
-    border:none;
-    cursor:pointer;
-    font-weight:bold;
-}
-button:hover { background:#43a047; }
-#msg {
-    margin-top:15px;
-    font-weight:bold;
-    white-space:pre-line;
-}
-p.desc {
-    margin-top:20px;
-    font-size:14px;
-    color:#555;
-    line-height:1.5;
-}
-</style>
+    <meta charset="UTF-8">
+    <title>관리자</title>
 </head>
-
 <body>
-<div class="box">
-    <h2>정답 설정 (진행자 전용)</h2>
+    <h1>정답 설정</h1>
+    <input id="answer" placeholder="정답 단어">
+    <button onclick="setAnswer()">저장</button>
 
-    <form id="answerForm">
-        <input id="answer" name="word" placeholder="정답 단어 입력 (예: 지뢰, 파리채)">
-        <button type="submit">저장</button>
-    </form>
-
-    <div id="msg"></div>
-
-    <p class="desc">
-        정답 단어를 설정하면 기존 리더보드가 초기화되고<br>
-        참가자들은 새 라운드에서 단어를 추측하게 됩니다.
-    </p>
-</div>
+    <p id="msg"></p>
 
 <script>
-document.getElementById("answerForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
+async function setAnswer() {
+    let answer = document.getElementById("answer").value;
 
-    const word = document.getElementById("answer").value.trim();
-    if (!word) {
-        document.getElementById("msg").innerText = "❌ 정답을 입력하세요.";
-        return;
-    }
+    let r = await fetch("/set_answer", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({answer})
+    });
 
-    const fd = new FormData();
-    fd.append("word", word);
+    let j = await r.json();
 
-    try {
-        const r = await fetch("/set_answer", {
-            method: "POST",
-            body: fd
-        });
-        const data = await r.json();
-
-        if (!data.ok) {
-            document.getElementById("msg").innerText = "❌ " + (data.error || "서버 오류");
-        } else {
-            document.getElementById("msg").innerText =
-                `✔ 정답 설정됨: ${data.answer}\n리더보드가 초기화되었습니다.`;
-        }
-    } catch (e) {
-        document.getElementById("msg").innerText = "⚠ 서버 응답 오류 — 다시 시도해주세요.";
-    }
-});
+    document.getElementById("msg").innerText =
+        "정답 설정 완료: " + j.answer;
+}
 </script>
+
 </body>
 </html>
