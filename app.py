@@ -1,131 +1,139 @@
-from fastapi import FastAPI, Form
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, JSONResponse
+from typing import List, Dict, Optional
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from pydantic import BaseModel
+from fasttext_loader import get_vector
 
 app = FastAPI()
 
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# 한국어 SBERT 임베딩 모델
-model = SentenceTransformer("snunlp/KR-SBERT-V40K-klueNLI-augSTS")
+# ===============================
+#   GLOBAL GAME STATE
+# ===============================
+answer_word: Optional[str] = None
+answer_vector: Optional[np.ndarray] = None
 
-ANSWER = None                # 정답 단어
-ANSWER_VEC = None            # 정답 벡터
-submissions = []             # 제출 기록
-
-# 유사도 안내 문구용 기준값
-BEST_SCORE = None            # 가장 유사한 단어 점수(1위)
-TOP10_SCORE = None           # 10위
-TOP1000_SCORE = None         # 1000위
+submissions: List[Dict] = []
 
 
-def encode(word: str):
-    """SBERT 임베딩"""
-    return model.encode([word], convert_to_numpy=True)[0]
+# ===============================
+#   UTILS
+# ===============================
+def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    if a is None or b is None:
+        return -1.0
+    if np.linalg.norm(a) == 0 or np.linalg.norm(b) == 0:
+        return -1.0
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 
 
-def cosine_to_score(cosine: float):
-    """
-    SBERT cosine (-1 ~ 1) → 꼬맨틀 감성 점수(-20 ~ 70)
-    """
-    score = (cosine * 45) + 25
-    score = max(-20.0, min(70.0, score))
-    return round(float(score), 2)
+def score_from_cosine(cosine: float) -> float:
+    if cosine < 0:
+        return -20.0
+    return round(cosine * 70.0, 2)
 
 
-@app.get("/")
-def page_index():
-    return FileResponse("static/index.html")
+# ===============================
+#   ROUTES
+# ===============================
+@app.get("/", response_class=HTMLResponse)
+def main_page():
+    with open("static/index.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 
-@app.get("/game")
-def page_game():
-    return FileResponse("static/game.html")
+@app.get("/game", response_class=HTMLResponse)
+def game_page():
+    with open("static/game.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 
-@app.get("/admin")
-def page_admin():
-    return FileResponse("static/admin.html")
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page():
+    with open("static/admin.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 
-# ---------------- 정답 설정 ----------------
+class Answer(BaseModel):
+    answer: str
+
+
 @app.post("/set_answer")
-def set_answer(word: str = Form(...)):
-    global ANSWER, ANSWER_VEC, submissions
-    global BEST_SCORE, TOP10_SCORE, TOP1000_SCORE
+def set_answer(data: Answer):
+    global answer_word, answer_vector, submissions
 
-    word = word.strip()
-    if not word:
-        return {"ok": False, "error": "정답 단어를 입력하세요."}
-
-    try:
-        vec = encode(word)
-    except Exception:
-        return {"ok": False, "error": "임베딩 생성 실패 — 너무 특수한 단어일 수 있습니다."}
-
-    ANSWER = word
-    ANSWER_VEC = vec
+    answer_word = data.answer.strip()
+    answer_vector = get_vector(answer_word)
     submissions = []
 
-    # 원조 꼬맨틀 느낌으로 고정 안내값 제공
-    BEST_SCORE = 70.0
-    TOP10_SCORE = 45.0
-    TOP1000_SCORE = 15.0
-
-    return {"ok": True, "answer": ANSWER}
+    return {"ok": True, "answer": answer_word}
 
 
-# ---------------- 참가자 제출 ----------------
 @app.get("/guess")
-def guess(word: str, team: str):
-    global ANSWER, ANSWER_VEC, submissions
-
-    if ANSWER is None or ANSWER_VEC is None:
-        return {"ok": False, "error": "아직 정답이 설정되지 않았습니다."}
+def guess(word: str, team: str = "팀"):
+    global answer_word, answer_vector, submissions
 
     word = word.strip()
-    team = (team or "").strip() or "이름없는 팀"
+    vec = get_vector(word)
 
-    if not word:
-        return {"ok": False, "error": "단어를 입력하세요."}
-
-    if word == ANSWER:
-        similarity = 70.0
+    if vec is None:
+        score = -20
     else:
-        try:
-            vec = encode(word)
-        except Exception:
-            similarity = -20.0
-        else:
-            cosine = float(np.dot(vec, ANSWER_VEC) /
-                           (np.linalg.norm(vec) * np.linalg.norm(ANSWER_VEC)))
-            similarity = cosine_to_score(cosine)
+        cos = cosine_similarity(vec, answer_vector)
+        score = score_from_cosine(cos)
 
-    submissions.append({"team": team, "word": word, "similarity": similarity})
-    submissions.sort(key=lambda x: x["similarity"], reverse=True)
+    if word == answer_word:
+        score = 70.0
 
-    return {"ok": True, "similarity": similarity}
+    entry = {
+        "team": team,
+        "word": word,
+        "score": score
+    }
+    submissions.append(entry)
 
+    submissions.sort(key=lambda x: x["score"], reverse=True)
 
-# ---------------- 유사도 안내 수치 ----------------
-@app.get("/scoreinfo")
-def scoreinfo():
+    rank = submissions.index(entry) + 1
+
     return {
-        "best": BEST_SCORE,
-        "top10": TOP10_SCORE,
-        "top1000": TOP1000_SCORE
+        "ok": True,
+        "team": team,
+        "word": word,
+        "score": score,
+        "rank": rank
     }
 
 
-# ---------------- 리더보드 ----------------
 @app.get("/leaderboard")
 def leaderboard():
-    return {"ok": True, "leaderboard": submissions}
+    if len(submissions) == 0:
+        return {
+            "ok": True,
+            "best": None,
+            "tenth": None,
+            "thousandth": None,
+            "leaderboard": []
+        }
+
+    scores = [s["score"] for s in submissions]
+
+    best = scores[0]
+    tenth = scores[9] if len(scores) >= 10 else scores[-1]
+    thousandth = scores[999] if len(scores) >= 1000 else scores[-1]
+
+    return {
+        "ok": True,
+        "best": best,
+        "tenth": tenth,
+        "thousandth": thousandth,
+        "leaderboard": submissions
+    }
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=7860, lifespan="off")
