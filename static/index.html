@@ -1,68 +1,12 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>팀 이름 입력</title>
-<style>
-body {
-    font-family: Arial, sans-serif;
-    background: #f5f5f5;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-}
-.box {
-    width: 380px;
-    padding: 30px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 3px 12px rgba(0,0,0,0.1);
-}
-h2 {
-    margin-top: 0;
-}
-input, button {
-    width: 100%;
-    padding: 12px;
-    margin-top: 10px;
-    border-radius: 8px;
-    font-size: 16px;
-    box-sizing: border-box;
-}
-input {
-    border: 1px solid #ccc;
-}
-button {
-    background: #4299e1;
-    color: white;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-}
-button:hover {
-    background: #3182ce;
-}
-</style>
+    <meta charset="UTF-8">
+    <title>Ccomantle Korea</title>
 </head>
-
 <body>
-<div class="box">
-    <h2>팀 이름을 입력하세요</h2>
-    <input id="team" placeholder="예: 어스컴퍼니 A팀">
-    <button onclick="goGame()">게임 시작</button>
-</div>
-
-<script>
-function goGame() {
-    const t = document.getElementById("team").value.trim();
-    if (!t) {
-        alert("팀 이름을 입력하세요.");
-        return;
-    }
-    localStorage.setItem("team_name", t);
-    location.href = "/game";
-}
-</script>
+    <h1>🧩 Ccomantle Korea</h1>
+    <a href="/game">게임 시작</a><br>
+    <a href="/admin">관리자 페이지</a>
 </body>
 </html>
