@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 import numpy as np
 
-from fasttext_loader import get_vector  # 내부 구현은 sentence-transformers
+from fasttext_loader import get_vector  # 내부는 sentence-transformers 기반
 
 app = FastAPI()
 
@@ -36,27 +36,26 @@ def cosine_similarity(a: Optional[np.ndarray], b: Optional[np.ndarray]) -> float
 def score_from_cosine(cosine: float) -> float:
     """
     코사인 유사도를 점수로 변환.
-    - 음수 → -20 고정
-    - [0, 1] 범위 → 0 ~ 70 스케일링
+    - 음수 → -10
+    - 0~1 → 0~100 선형 스케일
     """
     if cosine < 0:
-        return -20.0
-    return round(cosine * 70.0, 2)
+        return -10.0
+    return round(cosine * 100.0, 2)
 
 
 def compute_leaderboard_stats():
-    """
-    submissions 기준으로 1위, 10위, 1000위 점수 계산.
-    없으면 None.
-    """
     if not submissions:
         return None, None, None
 
-    scores = [s["score"] for s in submissions]
+    numeric_scores = [s["score"] for s in submissions if isinstance(s["score"], (int, float))]
 
-    best = scores[0]
-    tenth = scores[9] if len(scores) >= 10 else scores[-1]
-    thousandth = scores[999] if len(scores) >= 1000 else scores[-1]
+    if not numeric_scores:
+        return None, None, None
+
+    best = numeric_scores[0]
+    tenth = numeric_scores[9] if len(numeric_scores) >= 10 else numeric_scores[-1]
+    thousandth = numeric_scores[999] if len(numeric_scores) >= 1000 else numeric_scores[-1]
 
     return best, tenth, thousandth
 
@@ -94,10 +93,6 @@ def admin_page():
 # ===========================
 @app.post("/set_answer")
 def set_answer(data: AnswerRequest):
-    """
-    정답 단어를 설정하고, 그에 대한 벡터를 미리 계산.
-    기존 제출 기록(submissions)은 초기화.
-    """
     global answer_word, answer_vector, submissions
 
     answer = data.answer.strip()
@@ -105,7 +100,6 @@ def set_answer(data: AnswerRequest):
         return {"ok": False, "error": "정답 단어가 비어 있습니다."}
 
     vec = get_vector(answer)
-    # vec가 None이어도 일단 정답으로 사용 가능. (다른 단어도 전부 -20으로 나올 수 있음)
 
     answer_word = answer
     answer_vector = vec
@@ -127,17 +121,31 @@ def guess(word: str, team: str = "팀"):
     w = word.strip()
     t = team.strip() or "팀"
 
+    # 정답 직접 제출 → 숫자 점수 대신 "정답!"
+    if w == answer_word:
+        entry = {
+            "team": t,
+            "word": w,
+            "score": "정답!",
+            "rank": 1
+        }
+        submissions.insert(0, entry)
+        return {
+            "ok": True,
+            "team": t,
+            "word": w,
+            "score": "정답!",
+            "rank": 1
+        }
+
+    # 일반 단어 처리
     vec = get_vector(w)
 
     if vec is None or answer_vector is None:
-        score = -20.0
+        score = -10.0
     else:
         cos = cosine_similarity(vec, answer_vector)
         score = score_from_cosine(cos)
-
-    # 정답 단어 직접 제출 시 70점 고정
-    if w == answer_word:
-        score = 70.0
 
     entry = {
         "team": t,
@@ -146,7 +154,13 @@ def guess(word: str, team: str = "팀"):
     }
 
     submissions.append(entry)
-    submissions.sort(key=lambda x: x["score"], reverse=True)
+
+    numeric_first = [s for s in submissions if isinstance(s["score"], (int, float))]
+    numeric_first.sort(key=lambda x: x["score"], reverse=True)
+
+    others = [s for s in submissions if isinstance(s["score"], str)]
+
+    submissions[:] = numeric_first + others
 
     rank = submissions.index(entry) + 1
     entry["rank"] = rank
