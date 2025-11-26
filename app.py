@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
+from fasttext_loader import get_vector   # ← 맨 위에 추가
+
 app = FastAPI()
 
 # CORS
@@ -14,27 +16,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---- SBERT 한국어 모델 (허깅페이스에서 자동 다운로드) ----
+# ---- SBERT 한국어 모델 (사용은 최소화, fallback 용) ----
 model = SentenceTransformer("snunlp/KR-SBERT-V40K-klueNLI-augSTS")
 
-ANSWER = None          # 정답 단어 (문자열)
-ANSWER_VEC = None      # 정답 임베딩 벡터
-submissions = []       # {team, word, similarity} 리스트
-
-
-def encode_word(word: str) -> np.ndarray:
-    """SBERT 임베딩 생성"""
-    return model.encode([word], convert_to_numpy=True)[0]
-
-
-def cosine_to_score(cosine: float) -> float:
-    """
-    cosine(-1~1) → 점수(-20 ~ 70)로 변환
-    원조 꼬맨틀 느낌 나도록 대략적인 스케일 조정
-    """
-    score = (cosine + 0.2) * 70
-    score = max(-20.0, min(70.0, score))
-    return round(float(score), 2)
+ANSWER = None
+ANSWER_VEC = None
+submissions = []
 
 
 @app.get("/")
@@ -62,12 +49,9 @@ def set_answer(word: str = Form(...)):
         return JSONResponse({"ok": False, "error": "정답 단어를 입력하세요."})
 
     ANSWER = word
-    from fasttext_loader import get_vector
-ANSWER_VEC = get_vector(ANSWER)
+    ANSWER_VEC = get_vector(ANSWER)   # FastText 기반 벡터 생성
 
-
-    # 새 라운드 시작 → 기존 리더보드 초기화
-    submissions = []
+    submissions = []  # 라운드 리셋
 
     return JSONResponse({"ok": True, "answer": ANSWER})
 
@@ -86,21 +70,17 @@ def guess(word: str, team: str):
     if not word:
         return JSONResponse({"ok": False, "error": "단어를 입력하세요."})
 
-    # 정답인 경우
+    # 정답
     if word == ANSWER:
-        similarity = 70.0  # 스케일 상 최댓값으로 처리
+        similarity = 70.0
     else:
-from fasttext_loader import get_vector
-
-vec = get_vector(word)
-if vec is None:
-    similarity = -20.0
-else:
-    cosine = float(np.dot(vec, ANSWER_VEC) /
-                   (np.linalg.norm(vec) * np.linalg.norm(ANSWER_VEC)))
-    # 원조 꼬맨틀 스케일 (-20 ~ +70)
-    similarity = round((cosine * 45) + 25, 2)
-
+        vec = get_vector(word)
+        if vec is None:
+            similarity = -20.0
+        else:
+            cosine = float(np.dot(vec, ANSWER_VEC) /
+                           (np.linalg.norm(vec) * np.linalg.norm(ANSWER_VEC)))
+            similarity = round((cosine * 45) + 25, 2)  # (-20 ~ 70 스케일)
 
     submissions.append({
         "team": team,
@@ -108,7 +88,6 @@ else:
         "similarity": similarity,
     })
 
-    # 유사도 높은 순으로 정렬
     submissions.sort(key=lambda x: x["similarity"], reverse=True)
 
     return JSONResponse({"ok": True, "similarity": similarity})
