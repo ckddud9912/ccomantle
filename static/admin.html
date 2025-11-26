@@ -87,15 +87,15 @@
 
     <div class="card">
         <label for="answer-input">정답 단어</label>
-        <input id="answer-input" type="text" placeholder="예) 바다 / 햇빛 / 회식 / 팀워크" />
+        <input id="answer-input" type="text" placeholder="예) 바다 / 햇빛 / 팀워크" />
 
-        <button id="set-btn" onclick="setAnswer()">정답 설정하기</button>
+        <button onclick="setAnswer()">정답 설정하기</button>
 
         <div id="msg-box" class="msg"></div>
 
         <div class="hint">
             - 정답을 바꾸면 기존 리더보드는 초기화됩니다.<br />
-            - 방송/행사 시작 전에 미리 한 번 설정해 두세요.
+            - 행사 시작 전에 미리 설정해두세요.
         </div>
     </div>
 </div>
@@ -103,5 +103,41 @@
 <script>
 async function setAnswer() {
     const input = document.getElementById("answer-input");
-    const btn = document.getElementById("set-btn");
-    const msg = doc
+    const msg = document.getElementById("msg-box");
+
+    let answer = input.value.trim();
+
+    msg.textContent = "";
+    msg.className = "msg";
+
+    if (!answer) {
+        msg.textContent = "정답 단어를 입력해주세요.";
+        msg.classList.add("error");
+        return;
+    }
+
+    try {
+        const res = await fetch("/set_answer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ answer })
+        });
+
+        const data = await res.json();
+
+        if (!data.ok) {
+            msg.textContent = data.error || "정답 설정 실패!";
+            msg.classList.add("error");
+        } else {
+            msg.textContent = `정답이 "${data.answer}" 으로 설정되었습니다!`;
+            msg.classList.add("ok");
+        }
+    } catch (e) {
+        msg.textContent = "서버 오류 발생";
+        msg.classList.add("error");
+    }
+}
+</script>
+
+</body>
+</html>
