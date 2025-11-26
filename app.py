@@ -62,7 +62,9 @@ def set_answer(word: str = Form(...)):
         return JSONResponse({"ok": False, "error": "정답 단어를 입력하세요."})
 
     ANSWER = word
-    ANSWER_VEC = encode_word(word)
+    from fasttext_loader import get_vector
+ANSWER_VEC = get_vector(ANSWER)
+
 
     # 새 라운드 시작 → 기존 리더보드 초기화
     submissions = []
@@ -88,10 +90,17 @@ def guess(word: str, team: str):
     if word == ANSWER:
         similarity = 70.0  # 스케일 상 최댓값으로 처리
     else:
-        vec = encode_word(word)
-        cosine = float(np.dot(vec, ANSWER_VEC) /
-                       (np.linalg.norm(vec) * np.linalg.norm(ANSWER_VEC)))
-        similarity = cosine_to_score(cosine)
+from fasttext_loader import get_vector
+
+vec = get_vector(word)
+if vec is None:
+    similarity = -20.0
+else:
+    cosine = float(np.dot(vec, ANSWER_VEC) /
+                   (np.linalg.norm(vec) * np.linalg.norm(ANSWER_VEC)))
+    # 원조 꼬맨틀 스케일 (-20 ~ +70)
+    similarity = round((cosine * 45) + 25, 2)
+
 
     submissions.append({
         "team": team,
