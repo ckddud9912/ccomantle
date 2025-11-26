@@ -1,12 +1,86 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>Ccomantle Korea</title>
+    <meta charset="UTF-8" />
+    <title>꼬맨틀 코리아 - 메인</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            margin: 0;
+            padding: 40px 24px;
+            background: #111827;
+            color: #e5e7eb;
+        }
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #9ca3af;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: #1f2937;
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 16px;
+            border: 1px solid #374151;
+        }
+        a.button {
+            display: inline-block;
+            padding: 10px 16px;
+            border-radius: 9999px;
+            text-decoration: none;
+            color: #111827;
+            background: #facc15;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        .hint {
+            font-size: 14px;
+            color: #9ca3af;
+            margin-top: 8px;
+        }
+        ul {
+            padding-left: 20px;
+        }
+    </style>
 </head>
 <body>
-    <h1>🧩 Ccomantle Korea</h1>
-    <a href="/game">게임 시작</a><br>
-    <a href="/admin">관리자 페이지</a>
+<div class="container">
+    <h1>🧩 꼬맨틀 코리아 (팀전)</h1>
+    <div class="subtitle">
+        진행자가 정답 단어를 하나 정해두고,<br />
+        각 팀이 단어를 제출하면 <strong>유사도 점수</strong>와 <strong>순위</strong>가 실시간으로 갱신됩니다.
+    </div>
+
+    <div class="card">
+        <h2>게임 입장</h2>
+        <p>팀원들은 여기로 들어가서 단어를 제출하세요.</p>
+        <a href="/game" class="button">🎮 게임 화면</a>
+        <div class="hint">여러 팀이 동시에 접속해도 리더보드가 하나로 공유됩니다.</div>
+    </div>
+
+    <div class="card">
+        <h2>진행자 / MC 전용</h2>
+        <p>정답 단어 설정은 관리자 화면에서만 가능합니다.</p>
+        <a href="/admin" class="button">🛠 관리자 화면</a>
+        <div class="hint">정답을 바꾸면 기존 기록은 모두 초기화됩니다.</div>
+    </div>
+
+    <div class="card">
+        <h2>유사도 점수 규칙</h2>
+        <ul>
+            <li>유사도 점수 범위: <strong>-20 ~ 70</strong></li>
+            <li>모델에 없는 단어(OOV)는 <strong>-20점</strong>으로 처리</li>
+            <li>정답 단어를 맞추면 언제나 <strong>70점</strong></li>
+            <li>점수는 FastText 벡터 코사인 유사도 기반</li>
+        </ul>
+    </div>
+</div>
 </body>
 </html>
