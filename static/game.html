@@ -1,83 +1,53 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>꼬맨틀 게임</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>게임</title>
 </head>
 <body>
-<div class="container">
+    <h1>게임 화면</h1>
 
-  <h2>팀: <span id="team"></span></h2>
+    <input id="team" placeholder="팀 이름 입력">
+    <input id="word" placeholder="단어 입력">
+    <button onclick="sendGuess()">제출</button>
 
-  <p id="guide"></p>
+    <p id="result"></p>
 
-  <input id="wordInput" type="text" placeholder="단어를 입력하고 Enter를 누르세요">
-
-  <table>
-    <thead>
-      <tr>
-        <th>팀</th>
-        <th>단어</th>
-        <th>유사도</th>
-        <th>유사도 순위</th>
-      </tr>
-    </thead>
-    <tbody id="board"></tbody>
-  </table>
-</div>
+    <h3>Leaderboard</h3>
+    <div id="lb"></div>
 
 <script>
-const team = prompt("팀 이름을 입력하세요") || "이름없는 팀";
-document.getElementById("team").innerText = team;
+async function sendGuess() {
+    const team = document.getElementById("team").value;
+    const word = document.getElementById("word").value;
 
-// ---- 유사도 안내문 표시 ----
-async function loadScoreInfo() {
-  const res = await fetch("/scoreinfo");
-  const data = await res.json();
+    let r = await fetch(`/guess?word=${word}&team=${team}`);
+    let j = await r.json();
 
-  document.getElementById("guide").innerHTML =
-    `정답 단어와 가장 유사한 단어의 유사도는 <b>${data.best}</b> 입니다.<br>
-     10번째로 유사한 단어의 유사도는 <b>${data.top10}</b>이고,<br>
-     1,000번째로 유사한 단어의 유사도는 <b>${data.top1000}</b> 입니다.`;
+    document.getElementById("result").innerHTML =
+        `${j.team} / ${j.word} → 점수 ${j.score}, 순위 ${j.rank}`;
+
+    updateLB();
 }
-loadScoreInfo();
 
-// ---- 단어 제출 ----
-document.getElementById("wordInput").addEventListener("keydown", async (e) => {
-  if (e.key !== "Enter") return;
+async function updateLB() {
+    let r = await fetch("/leaderboard");
+    let j = await r.json();
 
-  const word = e.target.value.trim();
-  if (!word) return;
-  e.target.value = "";
+    let html = `
+        최고 점수: ${j.best ?? '-'}<br>
+        10위 점수: ${j.tenth ?? '-'}<br>
+        1000위 점수: ${j.thousandth ?? '-'}<br><br>
+    `;
 
-  const res = await fetch(`/guess?word=${encodeURIComponent(word)}&team=${encodeURIComponent(team)}`);
-  const data = await res.json();
-  if (!data.ok) {
-    alert(data.error);
-    return;
-  }
-  updateBoard();
-});
+    j.leaderboard.forEach((e, i) => {
+        html += `${i+1}. [${e.team}] ${e.word} → ${e.score}<br>`;
+    });
 
-// ---- 리더보드 업데이트 ----
-async function updateBoard() {
-  const res = await fetch("/leaderboard");
-  const data = await res.json();
-
-  let html = "";
-  data.leaderboard.forEach((row, idx) => {
-    html += `
-      <tr>
-        <td>${row.team}</td>
-        <td>${row.word}</td>
-        <td>${row.similarity}</td>
-        <td>${idx + 1}위</td>
-      </tr>`;
-  });
-  document.getElementById("board").innerHTML = html;
+    document.getElementById("lb").innerHTML = html;
 }
-setInterval(updateBoard, 1200);
+
+setInterval(updateLB, 2000);
 </script>
 
 </body>
