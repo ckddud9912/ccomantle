@@ -1,11 +1,12 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 import numpy as np
-from fasttext_loader import get_vector
+
+from fasttext_loader import get_vector  # 내부 구현은 sentence-transformers
 
 app = FastAPI()
 
@@ -22,21 +23,32 @@ submissions: List[Dict] = []
 # ===========================
 #   UTILS
 # ===========================
-def cosine_similarity(a: Optional[np.ndarray], b: Optional[np.ndarray]):
+def cosine_similarity(a: Optional[np.ndarray], b: Optional[np.ndarray]) -> float:
     if a is None or b is None:
         return -1.0
-    if np.linalg.norm(a) == 0 or np.linalg.norm(b) == 0:
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+    if na == 0 or nb == 0:
         return -1.0
-    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+    return float(np.dot(a, b) / (na * nb))
 
 
 def score_from_cosine(cosine: float) -> float:
+    """
+    코사인 유사도를 점수로 변환.
+    - 음수 → -20 고정
+    - [0, 1] 범위 → 0 ~ 70 스케일링
+    """
     if cosine < 0:
         return -20.0
     return round(cosine * 70.0, 2)
 
 
 def compute_leaderboard_stats():
+    """
+    submissions 기준으로 1위, 10위, 1000위 점수 계산.
+    없으면 None.
+    """
     if not submissions:
         return None, None, None
 
@@ -82,6 +94,10 @@ def admin_page():
 # ===========================
 @app.post("/set_answer")
 def set_answer(data: AnswerRequest):
+    """
+    정답 단어를 설정하고, 그에 대한 벡터를 미리 계산.
+    기존 제출 기록(submissions)은 초기화.
+    """
     global answer_word, answer_vector, submissions
 
     answer = data.answer.strip()
@@ -89,6 +105,7 @@ def set_answer(data: AnswerRequest):
         return {"ok": False, "error": "정답 단어가 비어 있습니다."}
 
     vec = get_vector(answer)
+    # vec가 None이어도 일단 정답으로 사용 가능. (다른 단어도 전부 -20으로 나올 수 있음)
 
     answer_word = answer
     answer_vector = vec
@@ -118,6 +135,7 @@ def guess(word: str, team: str = "팀"):
         cos = cosine_similarity(vec, answer_vector)
         score = score_from_cosine(cos)
 
+    # 정답 단어 직접 제출 시 70점 고정
     if w == answer_word:
         score = 70.0
 
@@ -168,4 +186,4 @@ def leaderboard():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=7860, lifespan="off")
+    uvicorn.run(app, host="0.0.0.0", port=7860)
