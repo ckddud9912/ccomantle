@@ -1,209 +1,84 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<title>꼬맨틀 게임</title>
-<style>
-body {
-    background:#f5f5f5;
-    font-family:Arial, sans-serif;
-    display:flex;
-    justify-content:center;
-}
-.container {
-    width:900px;
-    background:white;
-    margin-top:40px;
-    padding:30px;
-    border-radius:12px;
-    box-shadow:0 4px 20px rgba(0,0,0,0.05);
-}
-h1 { margin-top:0; }
-.team-label {
-    font-size:22px;
-    font-weight:bold;
-    margin-bottom:10px;
-}
-.stats {
-    margin-bottom:20px;
-    line-height:1.6;
-}
-.inputbox {
-    width:100%;
-    padding:14px;
-    font-size:17px;
-    border-radius:10px;
-    border:1px solid #ccc;
-    margin-bottom:20px;
-    box-sizing:border-box;
-}
-table {
-    width:100%;
-    border-collapse:collapse;
-    margin-top:10px;
-}
-th, td {
-    padding:10px;
-    border-bottom:1px solid #eee;
-    font-size:14px;
-    text-align:center;
-}
-th {
-    background:#f0f0f0;
-}
-td.word-cell {
-    text-align:left;
-}
-.progress {
-    width:120px;
-    height:10px;
-    background:#e0e0e0;
-    border-radius:5px;
-    overflow:hidden;
-    margin:0 auto;
-}
-.progress_inner {
-    height:100%;
-    background:#4b9cfc;
-}
-.info-box {
-    margin-top:25px;
-    padding:12px 16px;
-    background:#f8f8f8;
-    border-radius:8px;
-    font-size:13px;
-    color:#444;
-    line-height:1.6;
-}
-</style>
+  <meta charset="UTF-8">
+  <title>꼬맨틀 게임</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 <div class="container">
-    <div class="team-label" id="team_label"></div>
 
-    <div class="stats" id="stats-msg">
-        진행자가 정답을 설정하면 유사도 정보가 표시됩니다.
-    </div>
+  <h2>팀: <span id="team"></span></h2>
 
-    <input id="guess" class="inputbox" placeholder="단어를 입력하고 Enter를 누르세요">
+  <p id="guide"></p>
 
-    <h3>📊 리더보드 (유사도 높은 순)</h3>
+  <input id="wordInput" type="text" placeholder="단어를 입력하고 Enter를 누르세요">
 
-    <table>
-        <thead>
-            <tr>
-                <th>팀</th>
-                <th>단어</th>
-                <th>유사도</th>
-                <th>유사도 순위</th>
-            </tr>
-        </thead>
-        <tbody id="leaderBody"></tbody>
-    </table>
-
-    <div class="info-box">
-        <strong>Q. 유사도는 무엇인가요?</strong><br>
-        꼬맨틀에서 유사도는 추측한 단어와 정답 단어가 의미적으로 얼마나 비슷한지를 나타내는 점수입니다.
-        대략 <strong>-20에서 +70 사이</strong>의 값으로 표시되며, 값이 클수록 정답에 더 가깝다고 볼 수 있습니다.<br>
-        이 게임에서는 FastText라는 한국어 단어 임베딩을 사용해 모든 단어의 의미 벡터를 비교하고,
-        그 결과를 기반으로 유사도 점수와 유사도 순위를 계산합니다.
-    </div>
+  <table>
+    <thead>
+      <tr>
+        <th>팀</th>
+        <th>단어</th>
+        <th>유사도</th>
+        <th>유사도 순위</th>
+      </tr>
+    </thead>
+    <tbody id="board"></tbody>
+  </table>
 </div>
 
 <script>
-const teamName = localStorage.getItem("team_name") || "미등록 팀";
-document.getElementById("team_label").innerText = "팀: " + teamName;
+const team = prompt("팀 이름을 입력하세요") || "이름없는 팀";
+document.getElementById("team").innerText = team;
 
-const input = document.getElementById("guess");
-const leaderBody = document.getElementById("leaderBody");
-const statsMsg = document.getElementById("stats-msg");
+// ---- 유사도 안내문 표시 ----
+async function loadScoreInfo() {
+  const res = await fetch("/scoreinfo");
+  const data = await res.json();
 
-// 단어 제출
-input.addEventListener("keydown", async (e) => {
-    if (e.key === "Enter") {
-        const word = input.value.trim();
-        if (!word) return;
+  document.getElementById("guide").innerHTML =
+    `정답 단어와 가장 유사한 단어의 유사도는 <b>${data.best}</b> 입니다.<br>
+     10번째로 유사한 단어의 유사도는 <b>${data.top10}</b>이고,<br>
+     1,000번째로 유사한 단어의 유사도는 <b>${data.top1000}</b> 입니다.`;
+}
+loadScoreInfo();
 
-        try {
-            const r = await fetch(`/guess?word=${encodeURIComponent(word)}&team=${encodeURIComponent(teamName)}`);
-            const data = await r.json();
+// ---- 단어 제출 ----
+document.getElementById("wordInput").addEventListener("keydown", async (e) => {
+  if (e.key !== "Enter") return;
 
-            if (!data.ok) {
-                alert(data.error || "제출 중 오류가 발생했습니다.");
-            } else if (data.rank_label === "1000위 이상") {
-                // 그냥 참고만 (원하면 별도 처리 가능)
-            }
-        } catch (err) {
-            alert("서버와 통신 중 오류가 발생했습니다.");
-        }
+  const word = e.target.value.trim();
+  if (!word) return;
+  e.target.value = "";
 
-        input.value = "";
-    }
+  const res = await fetch(`/guess?word=${encodeURIComponent(word)}&team=${encodeURIComponent(team)}`);
+  const data = await res.json();
+  if (!data.ok) {
+    alert(data.error);
+    return;
+  }
+  updateBoard();
 });
 
-// 리더보드 갱신
-async function updateLeaderboard() {
-    try {
-        const r = await fetch("/leaderboard");
-        const data = await r.json();
-        if (!data.ok) return;
+// ---- 리더보드 업데이트 ----
+async function updateBoard() {
+  const res = await fetch("/leaderboard");
+  const data = await res.json();
 
-        leaderBody.innerHTML = "";
-
-        data.leaderboard.forEach(row => {
-            const tr = document.createElement("tr");
-
-            // 유사도 -20 ~ 70 범위를 0~100 막대 비율로
-            const barPercent = Math.max(0, Math.min(100, ((row.similarity + 20) / 90) * 100));
-
-            tr.innerHTML = `
-                <td>${row.team}</td>
-                <td class="word-cell">${row.word}</td>
-                <td>${row.similarity}</td>
-                <td>
-                    ${row.rank_label || ""}
-                    <div class="progress">
-                        <div class="progress_inner" style="width:${barPercent}%;"></div>
-                    </div>
-                </td>
-            `;
-            leaderBody.appendChild(tr);
-        });
-    } catch (e) {
-        // console.log(e);
-    }
+  let html = "";
+  data.leaderboard.forEach((row, idx) => {
+    html += `
+      <tr>
+        <td>${row.team}</td>
+        <td>${row.word}</td>
+        <td>${row.similarity}</td>
+        <td>${idx + 1}위</td>
+      </tr>`;
+  });
+  document.getElementById("board").innerHTML = html;
 }
-
-// 유사도 설명 텍스트 업데이트
-async function updateStats() {
-    try {
-        const r = await fetch("/stats");
-        const data = await r.json();
-        if (!data.ok) {
-            statsMsg.innerHTML = "진행자가 아직 정답을 설정하지 않았습니다.";
-            return;
-        }
-
-        const max = data.max_sim;
-        const top10 = data.top10_sim;
-        const top1000 = data.top1000_sim;
-
-        statsMsg.innerHTML = `
-        정답 단어와 가장 유사한 단어의 유사도는 <strong>${max}</strong> 입니다.<br>
-        10번째로 유사한 단어의 유사도는 <strong>${top10}</strong>이고,<br>
-        1,000번째로 유사한 단어의 유사도는 <strong>${top1000}</strong> 입니다.
-        `;
-    } catch (e) {
-        statsMsg.innerHTML = "유사도 정보를 불러오는 중 오류가 발생했습니다.";
-    }
-}
-
-// 일정 간격으로 갱신
-setInterval(updateLeaderboard, 1000);
-setInterval(updateStats, 5000);
-updateLeaderboard();
-updateStats();
+setInterval(updateBoard, 1200);
 </script>
+
 </body>
 </html>
