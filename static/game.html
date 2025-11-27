@@ -2,387 +2,205 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8" />
-    <title>꼬맨틀 코리아 - 게임</title>
+    <title>꼬맨틀 팀 대항전</title>
     <style>
         body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            font-family: Arial, sans-serif;
             margin: 0;
-            padding: 24px;
-            background: #020617;
-            color: #e5e7eb;
+            padding: 0;
         }
-        .layout {
-            max-width: 1100px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1.2fr 1.5fr;
-            gap: 24px;
+
+        .container {
+            width: 90%;
+            max-width: 900px;
+            margin: 30px auto;
         }
+
         h1 {
-            font-size: 28px;
-            margin-bottom: 8px;
+            text-align: center;
+            font-size: 32px;
+            margin-bottom: 25px;
         }
-        .subtitle {
-            color: #9ca3af;
-            margin-bottom: 24px;
+
+        .input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
         }
-        .card {
-            background: #020617;
-            border-radius: 16px;
-            padding: 16px 20px;
-            border: 1px solid #1f2937;
+
+        input, button {
+            padding: 10px;
+            font-size: 16px;
         }
-        label {
-            font-size: 14px;
-            color: #9ca3af;
-            display: block;
-            margin-bottom: 4px;
+
+        input {
+            flex: 1;
+            background: #161b22;
+            border: 1px solid #30363d;
+            color: #fff;
         }
-        input[type="text"] {
-            width: 100%;
-            padding: 10px 12px;
-            border-radius: 9999px;
-            border: 1px solid #374151;
-            background: #020617;
-            color: #e5e7eb;
-            margin-bottom: 12px;
-            outline: none;
-        }
-        input[type="text"]:focus {
-            border-color: #facc15;
-        }
+
         button {
-            padding: 10px 18px;
-            border-radius: 9999px;
+            background: #238636;
+            color: white;
             border: none;
-            background: #facc15;
-            color: #111827;
-            font-weight: 600;
             cursor: pointer;
         }
-        button:disabled {
-            opacity: 0.6;
-            cursor: default;
+
+        button:hover {
+            background: #2ea043;
         }
-        .result {
-            margin-top: 16px;
-            font-size: 14px;
-        }
-        .highlight {
-            font-weight: 700;
-            color: #facc15;
-        }
-        .error {
-            margin-top: 8px;
-            font-size: 13px;
-            color: #f87171;
-        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 13px;
+            background: #161b22;
+            margin-top: 20px;
         }
-        table th, table td {
-            text-align: center;
-            padding: 4px 2px;
+
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #30363d;
+            text-align: left;
         }
-        table thead {
-            border-bottom: 1px solid #1f2937;
-        }
-        .score-cell {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2px;
-        }
-        .score-number {
-            font-weight: 600;
-        }
-        .score-bar-wrap {
-            width: 70px;
-            height: 6px;
-            border-radius: 9999px;
-            background: #020617;
-            border: 1px solid #1f2937;
-            overflow: hidden;
-        }
+
         .score-bar {
-            height: 100%;
-            transition: width 0.3s ease;
+            height: 10px;
+            background: #238636;
+            width: 0%;
+            transition: width 0.6s ease-out;
         }
-        .score-bar-pos {
-            background: #22c55e;
+
+        .row-appear {
+            opacity: 0;
+            transform: translateY(10px);
+            animation: appear 0.4s forwards;
         }
-        .score-bar-neg {
-            background: #f97316;
+
+        @keyframes appear {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        .score-bar-zero {
-            background: #4b5563;
+
+        .team {
+            font-weight: bold;
+            padding: 3px 6px;
+            border-radius: 5px;
+            color: #fff;
         }
-        .row-highlight {
-            animation: rowFlash 0.8s ease-out;
-        }
-        @keyframes rowFlash {
-            0%   { background-color: rgba(250, 204, 21, 0.25); }
-            100% { background-color: transparent; }
-        }
-        .team-pill {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2px 10px;
-            border-radius: 9999px;
-            font-size: 12px;
-            font-weight: 500;
-            background: rgba(15, 23, 42, 0.9);
-            border: 1px solid rgba(148, 163, 184, 0.4);
+
+        .info-box {
+            margin-top: 25px;
+            font-size: 14px;
+            background: #161b22;
+            padding: 12px;
+            border: 1px solid #30363d;
         }
     </style>
 </head>
 <body>
-<div class="layout">
-    <div>
-        <h1>🎮 꼬맨틀 게임</h1>
-        <div class="subtitle">
-            오늘의 정답 단어를 맞춰보세요!
+    <div class="container">
+        <h1>꼬맨틀 팀 대항전</h1>
+
+        <div class="input-area">
+            <input id="team" placeholder="팀 이름 입력" />
+            <input id="word" placeholder="단어 입력" />
+            <button onclick="submitGuess()">제출</button>
         </div>
 
-        <div class="card">
-            <div id="meta-text" style="font-size:13px; color:#9ca3af; margin-bottom:12px;">
-                아직 어떤 팀도 단어를 제출하지 않았습니다.
-            </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>팀</th>
+                    <th>단어</th>
+                    <th>순위</th>
+                    <th>점수</th>
+                    <th style="width: 150px;">그래프</th>
+                </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
 
-            <label for="team-input">팀 이름</label>
-            <input id="team-input" type="text" placeholder="예) 1팀 / A조" />
-
-            <label for="word-input">제출 단어</label>
-            <input id="word-input" type="text" placeholder="예) 바다 / 노을 / 친절" />
-
-            <button onclick="sendGuess()">제출</button>
-
-            <div id="error-box" class="error"></div>
-            <div id="result-box" class="result"></div>
-        </div>
-    </div>
-
-    <div>
-        <h2 style="font-size: 18px; margin-bottom: 12px;">🏆 리더보드</h2>
-        <div class="card">
-            <div id="lb-header" style="font-size:13px; color:#9ca3af; margin-bottom:8px;">
-                정답 정보가 아직 설정되지 않았습니다.
-            </div>
-            <div style="max-height: 380px; overflow-y: auto; margin-bottom:12px;">
-                <table>
-                    <thead>
-                    <tr>
-                        <th style="width: 50px;">순위</th>
-                        <th style="width: 120px;">팀</th>
-                        <th>단어</th>
-                        <th style="width: 90px;">점수</th>
-                    </tr>
-                    </thead>
-                    <tbody id="lb-body">
-                    <tr><td colspan="4">아직 제출 없음</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div id="lb-meta" style="font-size: 13px; color: #9ca3af;">
-                아직 어떤 팀도 단어를 제출하지 않았습니다.
-            </div>
+        <div class="info-box">
+            <div>정답 단어: <span id="answer-word">-</span></div>
+            <div>1위 유사도: <span id="sim1">-</span></div>
+            <div>20위 유사도: <span id="sim20">-</span></div>
+            <div>1000위 유사도: <span id="sim1000">-</span></div>
         </div>
     </div>
-</div>
 
-<script>
-let teamColors = {};
-let lastSubmittedKey = null;
+    <script>
+        const teamColors = {};
+        const randomColor = () =>
+            "#" + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0");
 
-const COLOR_PALETTE = [
-    "#f97316", "#22c55e", "#3b82f6", "#a855f7",
-    "#eab308", "#ec4899", "#14b8a6", "#8b5cf6",
-    "#f97373", "#4ade80"
-];
-
-function getTeamColor(team) {
-    if (!team) return "#e5e7eb";
-    if (!teamColors[team]) {
-        const keys = Object.keys(teamColors);
-        const nextIndex = keys.length % COLOR_PALETTE.length;
-        teamColors[team] = COLOR_PALETTE[nextIndex];
-    }
-    return teamColors[team];
-}
-
-function safeNumber(v) {
-    if (v === null || v === undefined || isNaN(v)) return "-";
-    return Number(v).toFixed(2);
-}
-
-function buildScoreBar(score, isAnswer) {
-    let num = 0;
-    let cls = "score-bar-zero";
-
-    if (isAnswer) {
-        num = 100;
-        cls = "score-bar-pos";
-    } else if (typeof score === "number") {
-        num = Math.max(-100, Math.min(100, score));
-        if (num > 0) cls = "score-bar-pos";
-        else if (num < 0) cls = "score-bar-neg";
-        else cls = "score-bar-zero";
-        num = Math.abs(num);
-    } else {
-        num = 0;
-    }
-
-    const pct = num;
-    return `<div class="score-bar-wrap">
-                <div class="score-bar ${cls}" style="width:${pct}%;"></div>
-            </div>`;
-}
-
-// =============================
-//   SEND GUESS FUNCTION
-// =============================
-async function sendGuess() {
-    const team = document.getElementById("team-input").value.trim() || "팀";
-    const word = document.getElementById("word-input").value.trim();
-    const errorBox = document.getElementById("error-box");
-    const resultBox = document.getElementById("result-box");
-
-    errorBox.textContent = "";
-
-    if (!word) {
-        errorBox.textContent = "단어를 입력하세요!";
-        return;
-    }
-
-    try {
-        const res = await fetch(`/guess?word=${encodeURIComponent(word)}&team=${encodeURIComponent(team)}`);
-        const data = await res.json();
-
-        if (!data.ok) {
-            errorBox.textContent = data.error || "에러 발생";
-            return;
+        function getTeamColor(team) {
+            if (!teamColors[team]) teamColors[team] = randomColor();
+            return teamColors[team];
         }
 
-        let scoreText = data.score;
-        if (typeof scoreText === "number") {
-            scoreText = safeNumber(scoreText);
+        async function submitGuess() {
+            const team = document.getElementById("team").value.trim();
+            const word = document.getElementById("word").value.trim();
+            if (!team || !word) return;
+
+            await fetch("/guess", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ team, word })
+            });
+
+            document.getElementById("word").value = "";
+            updateLeaderboard();
         }
 
-        resultBox.innerHTML =
-            `<span class="highlight">[${data.team}] ${data.word}</span> → 점수 <span class="highlight">${scoreText}</span>, 순위 ${data.rank}위`;
+        async function updateLeaderboard() {
+            const res = await fetch("/leaderboard");
+            const data = await res.json();
 
-        document.getElementById("word-input").value = "";
+            const tbody = document.getElementById("table-body");
+            tbody.innerHTML = "";
 
-        lastSubmittedKey = `${data.team}::${data.word}`;
-        loadLeaderboard();
-    } catch (e) {
-        console.error(e);
-        errorBox.textContent = "서버 응답 없음";
-    }
-}
+            document.getElementById("answer-word").textContent = data.answer || "-";
+            document.getElementById("sim1").textContent = data.sim_top1?.toFixed(4) || "-";
+            document.getElementById("sim20").textContent = data.sim_top20?.toFixed(4) || "-";
+            document.getElementById("sim1000").textContent = data.sim_top1000?.toFixed(4) || "-";
 
-// =============================
-//   LEADERBOARD + META TEXT
-// =============================
-async function loadLeaderboard() {
-    const lbMeta = document.getElementById("lb-meta");
-    const lbBody = document.getElementById("lb-body");
-    const metaText = document.getElementById("meta-text");
-    const lbHeader = document.getElementById("lb-header");
+            data.submissions.forEach((item) => {
+                const tr = document.createElement("tr");
+                tr.classList.add("row-appear");
 
-    try {
-        const res = await fetch("/leaderboard");
-        const json = await res.json();
+                const teamTd = document.createElement("td");
+                teamTd.innerHTML = `<span class="team" style="background:${getTeamColor(
+                    item.team
+                )}">${item.team}</span>`;
 
-        const list = json.leaderboard || [];
+                const wordTd = document.createElement("td");
+                wordTd.textContent = item.word;
 
-        // 리더보드 테이블 렌더링
-        if (list.length === 0) {
-            lbBody.innerHTML = `<tr><td colspan="4">아직 제출 없음</td></tr>`;
-        } else {
-            lbBody.innerHTML = list.map(item => {
-                const isAnswer = item.is_answer === true || item.score === "정답!";
-                const key = `${item.team}::${item.word}`;
-                const teamColor = getTeamColor(item.team);
-                const scoreDisplay = (typeof item.score === "number")
-                    ? safeNumber(item.score)
-                    : item.score;
+                const rankTd = document.createElement("td");
+                rankTd.textContent = item.rank;
 
-                return `
-                <tr data-key="${key}" class="${key === lastSubmittedKey ? "row-highlight" : ""}">
-                    <td>${item.rank}</td>
-                    <td>
-                        <span class="team-pill" style="border-color:${teamColor}; color:${teamColor};">
-                            ${item.team}
-                        </span>
-                    </td>
-                    <td>${item.word}</td>
-                    <td>
-                        <div class="score-cell">
-                            <span class="score-number">${scoreDisplay}</span>
-                            ${buildScoreBar(item.score, isAnswer)}
-                        </div>
-                    </td>
-                </tr>`;
-            }).join("");
+                const scoreTd = document.createElement("td");
+                scoreTd.textContent = Math.round(item.score);
+
+                const barTd = document.createElement("td");
+                const bar = document.createElement("div");
+                bar.className = "score-bar";
+                bar.style.width = `${(item.score + 100) / 2}%`;
+                barTd.appendChild(bar);
+
+                tr.append(teamTd, wordTd, rankTd, scoreTd, barTd);
+                tbody.appendChild(tr);
+            });
         }
 
-        const answerScore = json.answer_score;
-        const best = json.best;
-        const twentieth = json.twentieth;
-        const thousandth = json.thousandth;
-
-        if (answerScore === null && best === null) {
-            lbHeader.textContent = "정답 정보가 아직 설정되지 않았습니다.";
-            metaText.textContent = "아직 어떤 팀도 단어를 제출하지 않았습니다.";
-            lbMeta.textContent = "아직 어떤 팀도 단어를 제출하지 않았습니다.";
-            return;
-        }
-
-        const linesTop = [];
-        if (answerScore !== null && answerScore !== undefined) {
-            linesTop.push(`정답 단어의 유사도 점수는 ${safeNumber(answerScore)}점 입니다.`);
-        }
-
-        if (best !== null && best !== undefined) {
-            const bestStr = safeNumber(best);
-            linesTop.push(`정답과 가장 유사한 단어의 점수는 ${bestStr}점 입니다.`);
-        }
-
-        const linesBottom = [];
-        if (twentieth !== null && twentieth !== undefined) {
-            const twentiethStr = safeNumber(twentieth);
-            if (thousandth !== null && thousandth !== undefined) {
-                const thousandthStr = safeNumber(thousandth);
-                linesBottom.push(`20번째로 유사한 단어의 점수는 ${twentiethStr}점이고, 1,000번째로 유사한 단어의 점수는 ${thousandthStr}점 입니다.`);
-            } else {
-                linesBottom.push(`20번째로 유사한 단어의 점수는 ${twentiethStr}점 입니다. (아직 1,000개 이상 단어가 제출되지 않았습니다.)`);
-            }
-        } else {
-            linesBottom.push(`아직 20개 이상 단어가 제출되지 않았습니다.`);
-        }
-
-        const headerHtml = [...linesTop].join("<br />");
-        const metaHtml = [...linesTop, ...linesBottom].join("<br />");
-
-        lbHeader.innerHTML = headerHtml || "정답 정보가 아직 설정되지 않았습니다.";
-        metaText.innerHTML = metaHtml;
-        lbMeta.innerHTML = metaHtml;
-
-    } catch (e) {
-        console.error(e);
-        lbMeta.textContent = "리더보드 로딩 실패";
-        metaText.textContent = "리더보드 정보를 불러오지 못했습니다.";
-        lbHeader.textContent = "정답 정보가 아직 설정되지 않았습니다.";
-    }
-}
-
-loadLeaderboard();
-setInterval(loadLeaderboard, 2000);
-</script>
-
+        setInterval(updateLeaderboard, 800);
+        updateLeaderboard();
+    </script>
 </body>
 </html>
