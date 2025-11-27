@@ -35,29 +35,26 @@ def cosine_similarity(a: Optional[np.ndarray], b: Optional[np.ndarray]) -> float
 
 def score_from_cosine(cosine: float) -> float:
     """
-    코사인 유사도를 점수로 변환.
-    - 음수 → -10
-    - 0~1 → 0~100 선형 스케일
+    코사인 유사도(-1~1)를 점수(-100~100)로 선형 매핑.
     """
-    if cosine < 0:
-        return -10.0
     return round(cosine * 100.0, 2)
 
 
 def compute_leaderboard_stats():
-    if not submissions:
-        return None, None, None
-
     numeric_scores = [s["score"] for s in submissions if isinstance(s["score"], (int, float))]
-
     if not numeric_scores:
         return None, None, None
 
     best = numeric_scores[0]
-    tenth = numeric_scores[9] if len(numeric_scores) >= 10 else numeric_scores[-1]
-    thousandth = numeric_scores[999] if len(numeric_scores) >= 1000 else numeric_scores[-1]
+    tenth = numeric_scores[9] if len(numeric_scores) >= 10 else None
+    thousandth = numeric_scores[999] if len(numeric_scores) >= 1000 else None
 
     return best, tenth, thousandth
+
+
+def recompute_ranks():
+    for idx, s in enumerate(submissions, start=1):
+        s["rank"] = idx
 
 
 # ===========================
@@ -121,28 +118,32 @@ def guess(word: str, team: str = "팀"):
     w = word.strip()
     t = team.strip() or "팀"
 
-    # 정답 직접 제출 → 숫자 점수 대신 "정답!"
+    # ============================
+    #   정답 제출 → "정답!" 처리
+    # ============================
     if w == answer_word:
         entry = {
             "team": t,
             "word": w,
             "score": "정답!",
-            "rank": 1
         }
         submissions.insert(0, entry)
+        recompute_ranks()
         return {
             "ok": True,
             "team": t,
             "word": w,
             "score": "정답!",
-            "rank": 1
+            "rank": entry["rank"],
         }
 
-    # 일반 단어 처리
+    # ============================
+    #   일반 단어 처리
+    # ============================
     vec = get_vector(w)
 
     if vec is None or answer_vector is None:
-        score = -10.0
+        score = -100.0
     else:
         cos = cosine_similarity(vec, answer_vector)
         score = score_from_cosine(cos)
@@ -155,22 +156,21 @@ def guess(word: str, team: str = "팀"):
 
     submissions.append(entry)
 
+    # 숫자 점수만 정렬, 문자열("정답!")은 마지막
     numeric_first = [s for s in submissions if isinstance(s["score"], (int, float))]
     numeric_first.sort(key=lambda x: x["score"], reverse=True)
+    string_last = [s for s in submissions if isinstance(s["score"], str)]
 
-    others = [s for s in submissions if isinstance(s["score"], str)]
+    submissions[:] = numeric_first + string_last
 
-    submissions[:] = numeric_first + others
-
-    rank = submissions.index(entry) + 1
-    entry["rank"] = rank
+    recompute_ranks()
 
     return {
         "ok": True,
         "team": t,
         "word": w,
         "score": score,
-        "rank": rank,
+        "rank": entry["rank"],
     }
 
 
