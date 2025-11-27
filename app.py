@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 import numpy as np
 
-from fasttext_loader import get_vector  # 내부는 sentence-transformers 기반
+from fasttext_loader import get_vector  # sentence-transformers 기반 구현
 
 app = FastAPI()
 
@@ -41,18 +41,25 @@ def score_from_cosine(cosine: float) -> float:
 
 
 def compute_leaderboard_stats():
+    """
+    1위 / 20위 / 1000위 점수 계산.
+    정답("정답!") 문자열은 제외하고 숫자 점수만 사용.
+    """
     numeric_scores = [s["score"] for s in submissions if isinstance(s["score"], (int, float))]
     if not numeric_scores:
         return None, None, None
 
     best = numeric_scores[0]
-    tenth = numeric_scores[9] if len(numeric_scores) >= 10 else None
+    twentieth = numeric_scores[19] if len(numeric_scores) >= 20 else None
     thousandth = numeric_scores[999] if len(numeric_scores) >= 1000 else None
 
-    return best, tenth, thousandth
+    return best, twentieth, thousandth
 
 
 def recompute_ranks():
+    """
+    submissions 리스트의 현재 순서를 기준으로 rank 재계산.
+    """
     for idx, s in enumerate(submissions, start=1):
         s["rank"] = idx
 
@@ -118,17 +125,27 @@ def guess(word: str, team: str = "팀"):
     w = word.strip()
     t = team.strip() or "팀"
 
-    # ============================
-    #   정답 제출 → "정답!" 처리
-    # ============================
+    # -------------------------
+    #  정답 제출 → "정답!" 처리
+    # -------------------------
     if w == answer_word:
         entry = {
             "team": t,
             "word": w,
             "score": "정답!",
+            "is_answer": True,
         }
-        submissions.insert(0, entry)
+        submissions.append(entry)
+
+        # 정답은 항상 맨 위로
+        answers = [s for s in submissions if s.get("is_answer")]
+        numeric = [s for s in submissions if not s.get("is_answer") and isinstance(s["score"], (int, float))]
+        numeric.sort(key=lambda x: x["score"], reverse=True)
+        strings = [s for s in submissions if not s.get("is_answer") and isinstance(s["score"], str)]
+
+        submissions[:] = answers + numeric + strings
         recompute_ranks()
+
         return {
             "ok": True,
             "team": t,
@@ -137,9 +154,9 @@ def guess(word: str, team: str = "팀"):
             "rank": entry["rank"],
         }
 
-    # ============================
-    #   일반 단어 처리
-    # ============================
+    # -------------------------
+    #  일반 단어 처리
+    # -------------------------
     vec = get_vector(w)
 
     if vec is None or answer_vector is None:
@@ -152,17 +169,18 @@ def guess(word: str, team: str = "팀"):
         "team": t,
         "word": w,
         "score": score,
+        "is_answer": False,
     }
 
     submissions.append(entry)
 
-    # 숫자 점수만 정렬, 문자열("정답!")은 마지막
-    numeric_first = [s for s in submissions if isinstance(s["score"], (int, float))]
-    numeric_first.sort(key=lambda x: x["score"], reverse=True)
-    string_last = [s for s in submissions if isinstance(s["score"], str)]
+    # 정답 그룹, 숫자 그룹, 기타 문자열 그룹 순으로 정렬
+    answers = [s for s in submissions if s.get("is_answer")]
+    numeric = [s for s in submissions if not s.get("is_answer") and isinstance(s["score"], (int, float))]
+    numeric.sort(key=lambda x: x["score"], reverse=True)
+    strings = [s for s in submissions if not s.get("is_answer") and isinstance(s["score"], str)]
 
-    submissions[:] = numeric_first + string_last
-
+    submissions[:] = answers + numeric + strings
     recompute_ranks()
 
     return {
@@ -179,7 +197,7 @@ def guess(word: str, team: str = "팀"):
 # ===========================
 @app.get("/leaderboard")
 def leaderboard():
-    best, tenth, thousandth = compute_leaderboard_stats()
+    best, twentieth, thousandth = compute_leaderboard_stats()
 
     data = []
     for idx, s in enumerate(submissions, start=1):
@@ -188,12 +206,17 @@ def leaderboard():
             "word": s["word"],
             "score": s["score"],
             "rank": s.get("rank", idx),
+            "is_answer": s.get("is_answer", False),
         })
+
+    # 정답 단어의 자체 유사도 점수(항상 100점) – answer가 설정된 경우만 사용
+    answer_score = 100.0 if answer_word is not None else None
 
     return {
         "ok": True,
+        "answer_score": answer_score,
         "best": best,
-        "tenth": tenth,
+        "twentieth": twentieth,
         "thousandth": thousandth,
         "leaderboard": data,
     }
