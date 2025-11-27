@@ -2,85 +2,110 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8" />
-    <title>꼬맨틀 코리아 - 메인</title>
+    <title>꼬맨틀 코리아</title>
     <style>
         body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             margin: 0;
-            padding: 40px 24px;
-            background: #111827;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top, #1f2937 0, #020617 55%);
             color: #e5e7eb;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .container {
             max-width: 720px;
-            margin: 0 auto;
+            padding: 32px 28px;
+            border-radius: 24px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid #1f2937;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
         }
         h1 {
             font-size: 32px;
-            margin-bottom: 8px;
+            margin: 0 0 12px 0;
         }
         .subtitle {
+            font-size: 15px;
             color: #9ca3af;
             margin-bottom: 24px;
         }
-        .card {
-            background: #1f2937;
-            border-radius: 16px;
-            padding: 20px 24px;
+        .tagline {
+            font-size: 14px;
+            color: #e5e7eb;
+            background: rgba(31, 41, 55, 0.9);
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
             margin-bottom: 16px;
-            border: 1px solid #374151;
+        }
+        .tag-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 9999px;
+            background: #facc15;
+        }
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
         }
         a.button {
-            display: inline-block;
-            padding: 10px 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 18px;
             border-radius: 9999px;
             text-decoration: none;
-            color: #111827;
-            background: #facc15;
-            font-weight: 600;
-            margin-right: 8px;
-        }
-        .hint {
             font-size: 14px;
-            color: #9ca3af;
-            margin-top: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        a.button-primary {
+            background: #facc15;
+            color: #111827;
+        }
+        a.button-outline {
+            background: transparent;
+            color: #e5e7eb;
+            border: 1px solid #4b5563;
         }
         ul {
-            padding-left: 20px;
+            margin: 16px 0 0 18px;
+            padding: 0;
+            font-size: 13px;
+            color: #9ca3af;
+        }
+        li + li {
+            margin-top: 4px;
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🧩 꼬맨틀 코리아 (팀전)</h1>
+    <div class="tagline">
+        <span class="tag-dot"></span>
+        오늘의 정답 단어를 맞춰보세요!
+    </div>
+    <h1>꼬맨틀 코리아</h1>
     <div class="subtitle">
-        진행자가 정답 단어를 하나 정해두고,<br />
-        각 팀이 단어를 제출하면 <strong>유사도 점수</strong>와 <strong>순위</strong>가 실시간으로 갱신됩니다.
+        팀별로 단어를 제출하면 정답 단어와의 유사도 점수가 계산되고, 리더보드에 순위가 실시간으로 반영됩니다.
     </div>
 
-    <div class="card">
-        <h2>게임 입장</h2>
-        <p>팀원들은 여기로 들어가서 단어를 제출하세요.</p>
-        <a href="/game" class="button">🎮 게임 화면</a>
-        <div class="hint">여러 팀이 동시에 접속해도 리더보드가 하나로 공유됩니다.</div>
+    <div class="btn-row">
+        <a href="/game" class="button button-primary">게임 시작하기</a>
+        <a href="/admin" class="button button-outline">진행자 페이지 (정답 설정)</a>
     </div>
 
-    <div class="card">
-        <h2>진행자 / MC 전용</h2>
-        <p>정답 단어 설정은 관리자 화면에서만 가능합니다.</p>
-        <a href="/admin" class="button">🛠 관리자 화면</a>
-        <div class="hint">정답을 바꾸면 기존 기록은 모두 초기화됩니다.</div>
-    </div>
-
-    <div class="card">
-        <h2>유사도 점수 규칙</h2>
-        <ul>
-            <li>유사도 점수 범위: <strong>-20 ~ 70</strong></li>
-            <li>모델에 없는 단어(OOV)는 <strong>-20점</strong>으로 처리</li>
-            <li>정답 단어를 맞추면 언제나 <strong>70점</strong></li>
-            <li>점수는 FastText 벡터 코사인 유사도 기반</li>
-        </ul>
-    </div>
+    <ul>
+        <li>점수 범위는 -100점에서 +100점까지이며, 정답 단어를 맞추면 점수 대신 <strong>“정답!”</strong>이 표시됩니다.</li>
+        <li>리더보드에는 팀별 색상이 랜덤으로 지정되고, 점수 옆에는 막대 그래프로 유사도 강도가 표시됩니다.</li>
+        <li>하단 안내 문구에서 1위, 20위, 1,000위 단어의 점수를 확인할 수 있습니다.</li>
+    </ul>
 </div>
 </body>
 </html>
