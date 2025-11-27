@@ -3,13 +3,13 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from typing import List, Dict, Optional
 import numpy as np
+from typing import List, Dict, Optional
 
-from fasttext_loader import get_vector  # sentence-transformers 기반 구현
+from fasttext_loader import get_vector
+
 
 app = FastAPI()
-
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ===========================
@@ -23,7 +23,7 @@ submissions: List[Dict] = []
 # ===========================
 #   UTILS
 # ===========================
-def cosine_similarity(a: Optional[np.ndarray], b: Optional[np.ndarray]) -> float:
+def cosine(a, b):
     if a is None or b is None:
         return -1.0
     na = np.linalg.norm(a)
@@ -33,62 +33,73 @@ def cosine_similarity(a: Optional[np.ndarray], b: Optional[np.ndarray]) -> float
     return float(np.dot(a, b) / (na * nb))
 
 
-def score_from_cosine(cosine: float) -> float:
+# ---------------------------
+#  원조 꼬맨틀 점수 공식 복원
+# ---------------------------
+def score_from_cosine(cos):
     """
-    코사인 유사도(-1~1)를 점수(-100~100)로 선형 매핑.
+    원조 꼬맨틀 분포에 맞춘 Nonlinear 스코어 변환.
+
+    1) cosine -1~1 → similarity 0~1
+    2) S-curve exponent ~5.8 로 상위권만 확 살림
+    3) 0~1 → 0~100 변환
+    4) 저점수는 강하게 눌러줌(원조 꼬맨틀 특징)
+    5) -100 ~ 100 최종 스케일링
     """
-    return round(cosine * 100.0, 2)
+    if cos is None:
+        return -100.0
 
+    sim = (cos + 1) / 2
+    curved = sim ** 5.8
+    score = curved * 100
 
-def compute_leaderboard_stats():
-    """
-    1위 / 20위 / 1000위 점수 계산.
-    정답("정답!") 문자열은 제외하고 숫자 점수만 사용.
-    """
-    numeric_scores = [s["score"] for s in submissions if isinstance(s["score"], (int, float))]
-    if not numeric_scores:
-        return None, None, None
+    if score < 30:
+        score = score * 0.35
 
-    best = numeric_scores[0]
-    twentieth = numeric_scores[19] if len(numeric_scores) >= 20 else None
-    thousandth = numeric_scores[999] if len(numeric_scores) >= 1000 else None
-
-    return best, twentieth, thousandth
+    final = score * 2 - 100
+    return round(final, 2)
 
 
 def recompute_ranks():
-    """
-    submissions 리스트의 현재 순서를 기준으로 rank 재계산.
-    """
-    for idx, s in enumerate(submissions, start=1):
-        s["rank"] = idx
+    for i, s in enumerate(submissions, start=1):
+        s["rank"] = i
+
+
+def stats():
+    numeric = [s["score"] for s in submissions if isinstance(s["score"], (int, float))]
+    if not numeric:
+        return None, None, None
+    best = numeric[0]
+    twentieth = numeric[19] if len(numeric) >= 20 else None
+    thousandth = numeric[999] if len(numeric) >= 1000 else None
+    return best, twentieth, thousandth
 
 
 # ===========================
-#   SCHEMA
+#   SCHEMAS
 # ===========================
 class AnswerRequest(BaseModel):
     answer: str
 
 
 # ===========================
-#   HTML ROUTES
+#   ROUTES - HTML
 # ===========================
 @app.get("/", response_class=HTMLResponse)
-def main_page():
-    with open("static/index.html", encoding="utf-8") as f:
+def index():
+    with open("static/index.html", "r", encoding="utf-8") as f:
         return f.read()
 
 
 @app.get("/game", response_class=HTMLResponse)
-def game_page():
-    with open("static/game.html", encoding="utf-8") as f:
+def game():
+    with open("static/game.html", "r", encoding="utf-8") as f:
         return f.read()
 
 
 @app.get("/admin", response_class=HTMLResponse)
-def admin_page():
-    with open("static/admin.html", encoding="utf-8") as f:
+def admin():
+    with open("static/admin.html", "r", encoding="utf-8") as f:
         return f.read()
 
 
@@ -96,48 +107,45 @@ def admin_page():
 #   API: SET ANSWER
 # ===========================
 @app.post("/set_answer")
-def set_answer(data: AnswerRequest):
+def set_answer(body: AnswerRequest):
     global answer_word, answer_vector, submissions
 
-    answer = data.answer.strip()
-    if not answer:
+    clean = body.answer.strip()
+    if not clean:
         return {"ok": False, "error": "정답 단어가 비어 있습니다."}
 
-    vec = get_vector(answer)
+    vec = get_vector(clean)
 
-    answer_word = answer
+    answer_word = clean
     answer_vector = vec
     submissions = []
 
-    return {"ok": True, "answer": answer}
+    return {"ok": True, "answer": clean}
 
 
 # ===========================
-#   API: GUESS WORD
+#   API: GUESS
 # ===========================
 @app.get("/guess")
 def guess(word: str, team: str = "팀"):
     global answer_word, answer_vector, submissions
 
     if answer_word is None:
-        return {"ok": False, "error": "아직 정답이 설정되지 않았습니다."}
+        return {"ok": False, "error": "정답이 아직 설정되지 않았습니다."}
 
-    w = word.strip()
-    t = team.strip() or "팀"
+    word = word.strip()
+    team = team.strip() or "팀"
 
-    # -------------------------
-    #  정답 제출 → "정답!" 처리
-    # -------------------------
-    if w == answer_word:
+    # 정답 처리
+    if word == answer_word:
         entry = {
-            "team": t,
-            "word": w,
+            "team": team,
+            "word": word,
             "score": "정답!",
-            "is_answer": True,
+            "is_answer": True
         }
         submissions.append(entry)
 
-        # 정답은 항상 맨 위로
         answers = [s for s in submissions if s.get("is_answer")]
         numeric = [s for s in submissions if not s.get("is_answer") and isinstance(s["score"], (int, float))]
         numeric.sort(key=lambda x: x["score"], reverse=True)
@@ -146,35 +154,20 @@ def guess(word: str, team: str = "팀"):
         submissions[:] = answers + numeric + strings
         recompute_ranks()
 
-        return {
-            "ok": True,
-            "team": t,
-            "word": w,
-            "score": "정답!",
-            "rank": entry["rank"],
-        }
+        return {"ok": True, "team": team, "word": word, "score": "정답!", "rank": entry["rank"]}
 
-    # -------------------------
-    #  일반 단어 처리
-    # -------------------------
-    vec = get_vector(w)
-
-    if vec is None or answer_vector is None:
-        score = -100.0
-    else:
-        cos = cosine_similarity(vec, answer_vector)
-        score = score_from_cosine(cos)
+    vec = get_vector(word)
+    cos = cosine(vec, answer_vector)
+    score = score_from_cosine(cos)
 
     entry = {
-        "team": t,
-        "word": w,
+        "team": team,
+        "word": word,
         "score": score,
-        "is_answer": False,
+        "is_answer": False
     }
-
     submissions.append(entry)
 
-    # 정답 그룹, 숫자 그룹, 기타 문자열 그룹 순으로 정렬
     answers = [s for s in submissions if s.get("is_answer")]
     numeric = [s for s in submissions if not s.get("is_answer") and isinstance(s["score"], (int, float))]
     numeric.sort(key=lambda x: x["score"], reverse=True)
@@ -183,13 +176,7 @@ def guess(word: str, team: str = "팀"):
     submissions[:] = answers + numeric + strings
     recompute_ranks()
 
-    return {
-        "ok": True,
-        "team": t,
-        "word": w,
-        "score": score,
-        "rank": entry["rank"],
-    }
+    return {"ok": True, "team": team, "word": word, "score": score, "rank": entry["rank"]}
 
 
 # ===========================
@@ -197,20 +184,19 @@ def guess(word: str, team: str = "팀"):
 # ===========================
 @app.get("/leaderboard")
 def leaderboard():
-    best, twentieth, thousandth = compute_leaderboard_stats()
+    best, twentieth, thousandth = stats()
 
-    data = []
-    for idx, s in enumerate(submissions, start=1):
-        data.append({
+    out = []
+    for s in submissions:
+        out.append({
             "team": s["team"],
             "word": s["word"],
             "score": s["score"],
-            "rank": s.get("rank", idx),
-            "is_answer": s.get("is_answer", False),
+            "rank": s["rank"],
+            "is_answer": s.get("is_answer", False)
         })
 
-    # 정답 단어의 자체 유사도 점수(항상 100점) – answer가 설정된 경우만 사용
-    answer_score = 100.0 if answer_word is not None else None
+    answer_score = 100 if answer_word else None
 
     return {
         "ok": True,
@@ -218,7 +204,7 @@ def leaderboard():
         "best": best,
         "twentieth": twentieth,
         "thousandth": thousandth,
-        "leaderboard": data,
+        "leaderboard": out
     }
 
 
