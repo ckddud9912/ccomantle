@@ -1,206 +1,196 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8" />
-    <title>꼬맨틀 팀 대항전</title>
-    <style>
-        body {
-            background: #0d1117;
-            color: #e6edf3;
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
+<meta charset="UTF-8">
+<title>꼬맨틀 팀대항전</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #111;
+        color: #fff;
+        margin: 0;
+        padding: 20px;
+    }
 
-        .container {
-            width: 90%;
-            max-width: 900px;
-            margin: 30px auto;
-        }
+    h1 {
+        font-size: 26px;
+        text-align: center;
+        margin-bottom: 15px;
+    }
 
-        h1 {
-            text-align: center;
-            font-size: 32px;
-            margin-bottom: 25px;
-        }
+    .input-area {
+        text-align: center;
+        margin-bottom: 20px;
+    }
 
-        .input-area {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 25px;
-        }
+    input {
+        padding: 8px;
+        font-size: 16px;
+        width: 180px;
+        background: #222;
+        color: #fff;
+        border: 1px solid #444;
+    }
 
-        input, button {
-            padding: 10px;
-            font-size: 16px;
-        }
+    button {
+        padding: 8px 16px;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 6px;
+        background: #333;
+        color: #fff;
+        border: 1px solid #555;
+    }
 
-        input {
-            flex: 1;
-            background: #161b22;
-            border: 1px solid #30363d;
-            color: #fff;
-        }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 25px;
+    }
 
-        button {
-            background: #238636;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
+    th, td {
+        padding: 10px;
+        text-align: center;
+        border-bottom: 1px solid #444;
+    }
 
-        button:hover {
-            background: #2ea043;
-        }
+    .bar-box {
+        width: 100%;
+        height: 16px;
+        background: #333;
+        border-radius: 8px;
+        overflow: hidden;
+    }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #161b22;
-            margin-top: 20px;
-        }
+    .bar-fill {
+        height: 100%;
+        transition: width 0.6s ease;
+    }
 
-        th, td {
-            padding: 10px;
-            border-bottom: 1px solid #30363d;
-            text-align: left;
-        }
+    .row-appear {
+        animation: fadeIn 0.5s ease;
+    }
 
-        .score-bar {
-            height: 10px;
-            background: #238636;
-            width: 0%;
-            transition: width 0.6s ease-out;
-        }
-
-        .row-appear {
-            opacity: 0;
-            transform: translateY(10px);
-            animation: appear 0.4s forwards;
-        }
-
-        @keyframes appear {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .team {
-            font-weight: bold;
-            padding: 3px 6px;
-            border-radius: 5px;
-            color: #fff;
-        }
-
-        .info-box {
-            margin-top: 25px;
-            font-size: 14px;
-            background: #161b22;
-            padding: 12px;
-            border: 1px solid #30363d;
-        }
-    </style>
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
 </head>
+
 <body>
-    <div class="container">
-        <h1>꼬맨틀 팀 대항전</h1>
 
-        <div class="input-area">
-            <input id="team" placeholder="팀 이름 입력" />
-            <input id="word" placeholder="단어 입력" />
-            <button onclick="submitGuess()">제출</button>
-        </div>
+<h1>오늘의 정답 단어를 맞춰보세요!</h1>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>팀</th>
-                    <th>단어</th>
-                    <th>순위</th>
-                    <th>점수</th>
-                    <th style="width: 150px;">그래프</th>
-                </tr>
-            </thead>
-            <tbody id="table-body"></tbody>
-        </table>
+<div class="input-area">
+    <input id="team" placeholder="팀 이름 입력">
+    <input id="word" placeholder="단어 입력">
+    <button onclick="sendGuess()">제출</button>
+</div>
 
-        <div class="info-box">
-            <div>정답 단어: <span id="answer-word">-</span></div>
-            <div>1위 유사도: <span id="sim1">-</span></div>
-            <div>20위 유사도: <span id="sim20">-</span></div>
-            <div>1000위 유사도: <span id="sim1000">-</span></div>
-        </div>
-    </div>
+<div id="meta-box" style="text-align:center; margin-top:15px; font-size:15px;">
+    <div>정답과 가장 유사한 단어 유사도: <span id="best"></span></div>
+    <div>20번째로 유사한 단어 유사도: <span id="tw"></span></div>
+    <div>1000번째로 유사한 단어 유사도: <span id="th"></span></div>
+</div>
 
-    <script>
-        const teamColors = {};
-        const randomColor = () =>
-            "#" + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0");
+<table id="leader">
+    <thead>
+        <tr>
+            <th>팀</th>
+            <th>단어</th>
+            <th>순위</th>
+            <th>점수</th>
+            <th>유사도 바</th>
+        </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+</table>
 
-        function getTeamColor(team) {
-            if (!teamColors[team]) teamColors[team] = randomColor();
-            return teamColors[team];
+<script>
+let teamColors = {};
+
+function getTeamColor(team) {
+    if (!teamColors[team]) {
+        teamColors[team] = "#" + Math.floor(Math.random()*16777215).toString(16);
+    }
+    return teamColors[team];
+}
+
+async function sendGuess() {
+    const team = document.getElementById("team").value.trim();
+    const word = document.getElementById("word").value.trim();
+    if (!team || !word) return;
+
+    await fetch("/guess", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ team, word })
+    });
+
+    document.getElementById("word").value = "";
+    loadBoard();
+}
+
+async function loadBoard() {
+    const res = await fetch("/leaderboard");
+    const data = await res.json();
+
+    document.getElementById("best").innerText = data.sim_top1 ? data.sim_top1.toFixed(4) : "-";
+    document.getElementById("tw").innerText = data.sim_top20 ? data.sim_top20.toFixed(4) : "-";
+    document.getElementById("th").innerText = data.sim_top1000 ? data.sim_top1000.toFixed(4) : "-";
+
+    const tb = document.getElementById("tbody");
+    tb.innerHTML = "";
+
+    for (let row of data.submissions) {
+
+        const tr = document.createElement("tr");
+        tr.classList.add("row-appear");
+
+        const teamTd = document.createElement("td");
+        teamTd.innerText = row.team;
+        tr.appendChild(teamTd);
+
+        const wordTd = document.createElement("td");
+        wordTd.innerText = row.word;
+        tr.appendChild(wordTd);
+
+        const rankTd = document.createElement("td");
+        rankTd.innerText = row.rank;
+        tr.appendChild(rankTd);
+
+        const scoreTd = document.createElement("td");
+        scoreTd.innerText = Math.round(row.score);
+        tr.appendChild(scoreTd);
+
+        const barTd = document.createElement("td");
+        const box = document.createElement("div");
+        box.className = "bar-box";
+
+        const fill = document.createElement("div");
+        fill.className = "bar-fill";
+
+        if (typeof row.score === "number") {
+            const pct = (row.score + 100) / 200 * 100;
+            fill.style.width = pct + "%";
+            fill.style.background = getTeamColor(row.team);
+        } else {
+            fill.style.width = "100%";
+            fill.style.background = "#FFD700";
         }
 
-        async function submitGuess() {
-            const team = document.getElementById("team").value.trim();
-            const word = document.getElementById("word").value.trim();
-            if (!team || !word) return;
+        box.appendChild(fill);
+        barTd.appendChild(box);
+        tr.appendChild(barTd);
 
-            await fetch("/guess", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ team, word })
-            });
+        tb.appendChild(tr);
+    }
+}
 
-            document.getElementById("word").value = "";
-            updateLeaderboard();
-        }
+loadBoard();
+setInterval(loadBoard, 1500);
+</script>
 
-        async function updateLeaderboard() {
-            const res = await fetch("/leaderboard");
-            const data = await res.json();
-
-            const tbody = document.getElementById("table-body");
-            tbody.innerHTML = "";
-
-            document.getElementById("answer-word").textContent = data.answer || "-";
-            document.getElementById("sim1").textContent = data.sim_top1?.toFixed(4) || "-";
-            document.getElementById("sim20").textContent = data.sim_top20?.toFixed(4) || "-";
-            document.getElementById("sim1000").textContent = data.sim_top1000?.toFixed(4) || "-";
-
-            data.submissions.forEach((item) => {
-                const tr = document.createElement("tr");
-                tr.classList.add("row-appear");
-
-                const teamTd = document.createElement("td");
-                teamTd.innerHTML = `<span class="team" style="background:${getTeamColor(
-                    item.team
-                )}">${item.team}</span>`;
-
-                const wordTd = document.createElement("td");
-                wordTd.textContent = item.word;
-
-                const rankTd = document.createElement("td");
-                rankTd.textContent = item.rank;
-
-                const scoreTd = document.createElement("td");
-                scoreTd.textContent = Math.round(item.score);
-
-                const barTd = document.createElement("td");
-                const bar = document.createElement("div");
-                bar.className = "score-bar";
-                bar.style.width = `${(item.score + 100) / 2}%`;
-                barTd.appendChild(bar);
-
-                tr.append(teamTd, wordTd, rankTd, scoreTd, barTd);
-                tbody.appendChild(tr);
-            });
-        }
-
-        setInterval(updateLeaderboard, 800);
-        updateLeaderboard();
-    </script>
 </body>
 </html>
