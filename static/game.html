@@ -77,6 +77,18 @@
             font-size: 13px;
             color: #f87171;
         }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        table th, table td {
+            text-align: center;
+            padding: 4px 2px;
+        }
+        table thead {
+            border-bottom: 1px solid #1f2937;
+        }
     </style>
 </head>
 <body>
@@ -84,10 +96,14 @@
     <div>
         <h1>🎮 꼬맨틀 게임</h1>
         <div class="subtitle">
-            팀 이름과 단어를 입력하고 제출하면 유사도 점수와 순위가 표시됩니다.
+            오늘의 정답 단어를 맞춰보세요!
         </div>
 
         <div class="card">
+            <div id="meta-text" style="font-size:13px; color:#9ca3af; margin-bottom:12px;">
+                아직 어떤 팀도 단어를 제출하지 않았습니다.
+            </div>
+
             <label for="team-input">팀 이름</label>
             <input id="team-input" type="text" placeholder="예) 1팀 / A조" />
 
@@ -104,23 +120,23 @@
     <div>
         <h2 style="font-size: 18px; margin-bottom: 12px;">🏆 리더보드</h2>
         <div class="card">
-            <div id="lb-meta" style="margin-bottom: 12px; font-size: 13px; color: #9ca3af;">
-                로딩 중...
-            </div>
-            <div style="max-height: 420px; overflow-y: auto;">
-                <table style="width:100%; border-collapse: collapse; font-size: 13px;">
+            <div style="max-height: 420px; overflow-y: auto; margin-bottom:12px;">
+                <table>
                     <thead>
                     <tr>
                         <th style="width: 50px;">순위</th>
                         <th style="width: 120px;">팀</th>
                         <th>단어</th>
-                        <th style="width: 80px; text-align:right;">점수</th>
+                        <th style="width: 80px;">점수</th>
                     </tr>
                     </thead>
                     <tbody id="lb-body">
                     <tr><td colspan="4">아직 제출 없음</td></tr>
                     </tbody>
                 </table>
+            </div>
+            <div id="lb-meta" style="font-size: 13px; color: #9ca3af;">
+                아직 어떤 팀도 단어를 제출하지 않았습니다.
             </div>
         </div>
     </div>
@@ -157,8 +173,13 @@ async function sendGuess() {
             return;
         }
 
+        let scoreText = data.score;
+        if (typeof scoreText === "number") {
+            scoreText = safeNumber(scoreText);
+        }
+
         resultBox.innerHTML =
-            `<span class="highlight">[${data.team}] ${data.word}</span> → 점수 <span class="highlight">${safeNumber(data.score)}</span>, 순위 ${data.rank}위`;
+            `<span class="highlight">[${data.team}] ${data.word}</span> → 점수 <span class="highlight">${scoreText}</span>, 순위 ${data.rank}위`;
 
         document.getElementById("word-input").value = "";
 
@@ -170,40 +191,70 @@ async function sendGuess() {
 }
 
 // =============================
-//   LEADERBOARD
+//   LEADERBOARD + META TEXT
 // =============================
 async function loadLeaderboard() {
     const lbMeta = document.getElementById("lb-meta");
     const lbBody = document.getElementById("lb-body");
+    const metaText = document.getElementById("meta-text");
 
     try {
         const res = await fetch("/leaderboard");
         const json = await res.json();
 
-        lbMeta.innerHTML =
-            `1위: <span class="highlight">${safeNumber(json.best)}</span>, ` +
-            `10위: <span class="highlight">${safeNumber(json.tenth)}</span>, ` +
-            `1000위: <span class="highlight">${safeNumber(json.thousandth)}</span>`;
-
         const list = json.leaderboard || [];
 
+        // 리더보드 테이블 렌더링
         if (list.length === 0) {
             lbBody.innerHTML = `<tr><td colspan="4">아직 제출 없음</td></tr>`;
+        } else {
+            lbBody.innerHTML = list.map(item => `
+                <tr>
+                    <td>${item.rank}</td>
+                    <td>${item.team}</td>
+                    <td>${item.word}</td>
+                    <td>${typeof item.score === "number" ? safeNumber(item.score) : item.score}</td>
+                </tr>
+            `).join("");
+        }
+
+        // 상단(입력 카드) 메타 문구 + 리더보드 하단 설명 문구
+        const best = json.best;
+        const tenth = json.tenth;
+        const thousandth = json.thousandth;
+
+        if (best === null || best === undefined) {
+            metaText.textContent = "아직 어떤 팀도 단어를 제출하지 않았습니다.";
+            lbMeta.textContent = "아직 어떤 팀도 단어를 제출하지 않았습니다.";
             return;
         }
 
-        lbBody.innerHTML = list.map(item => `
-            <tr>
-                <td>${item.rank}</td>
-                <td>${item.team}</td>
-                <td>${item.word}</td>
-                <td style="text-align:right;">${safeNumber(item.score)}</td>
-            </tr>
-        `).join("");
+        const bestStr = safeNumber(best);
+        let textLines = [];
+
+        // 입력 카드 상단 문구
+        textLines.push(`정답과 가장 유사한 단어의 점수는 ${bestStr}점 입니다.`);
+
+        // 10번째 / 1000번째 문구
+        if (tenth !== null && tenth !== undefined) {
+            const tenthStr = safeNumber(tenth);
+            if (thousandth !== null && thousandth !== undefined) {
+                const thousandthStr = safeNumber(thousandth);
+                textLines.push(`10번째로 유사한 단어의 점수는 ${tenthStr}점이고, 1,000번째로 유사한 단어의 점수는 ${thousandthStr}점 입니다.`);
+            } else {
+                textLines.push(`10번째로 유사한 단어의 점수는 ${tenthStr}점 입니다. (아직 1,000개 이상 단어가 제출되지 않았습니다.)`);
+            }
+        } else {
+            textLines.push(`아직 10개 이상 단어가 제출되지 않았습니다.`);
+        }
+
+        metaText.innerHTML = textLines.join("<br />");
+        lbMeta.innerHTML = textLines.join("<br />");
 
     } catch (e) {
         console.error(e);
         lbMeta.textContent = "리더보드 로딩 실패";
+        document.getElementById("meta-text").textContent = "리더보드 정보를 불러오지 못했습니다.";
     }
 }
 
