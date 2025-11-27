@@ -89,6 +89,54 @@
         table thead {
             border-bottom: 1px solid #1f2937;
         }
+        .score-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .score-number {
+            font-weight: 600;
+        }
+        .score-bar-wrap {
+            width: 70px;
+            height: 6px;
+            border-radius: 9999px;
+            background: #020617;
+            border: 1px solid #1f2937;
+            overflow: hidden;
+        }
+        .score-bar {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        .score-bar-pos {
+            background: #22c55e;
+        }
+        .score-bar-neg {
+            background: #f97316;
+        }
+        .score-bar-zero {
+            background: #4b5563;
+        }
+        .row-highlight {
+            animation: rowFlash 0.8s ease-out;
+        }
+        @keyframes rowFlash {
+            0%   { background-color: rgba(250, 204, 21, 0.25); }
+            100% { background-color: transparent; }
+        }
+        .team-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -120,14 +168,17 @@
     <div>
         <h2 style="font-size: 18px; margin-bottom: 12px;">🏆 리더보드</h2>
         <div class="card">
-            <div style="max-height: 420px; overflow-y: auto; margin-bottom:12px;">
+            <div id="lb-header" style="font-size:13px; color:#9ca3af; margin-bottom:8px;">
+                정답 정보가 아직 설정되지 않았습니다.
+            </div>
+            <div style="max-height: 380px; overflow-y: auto; margin-bottom:12px;">
                 <table>
                     <thead>
                     <tr>
                         <th style="width: 50px;">순위</th>
                         <th style="width: 120px;">팀</th>
                         <th>단어</th>
-                        <th style="width: 80px;">점수</th>
+                        <th style="width: 90px;">점수</th>
                     </tr>
                     </thead>
                     <tbody id="lb-body">
@@ -143,9 +194,51 @@
 </div>
 
 <script>
+let teamColors = {};
+let lastSubmittedKey = null;
+
+const COLOR_PALETTE = [
+    "#f97316", "#22c55e", "#3b82f6", "#a855f7",
+    "#eab308", "#ec4899", "#14b8a6", "#8b5cf6",
+    "#f97373", "#4ade80"
+];
+
+function getTeamColor(team) {
+    if (!team) return "#e5e7eb";
+    if (!teamColors[team]) {
+        const keys = Object.keys(teamColors);
+        const nextIndex = keys.length % COLOR_PALETTE.length;
+        teamColors[team] = COLOR_PALETTE[nextIndex];
+    }
+    return teamColors[team];
+}
+
 function safeNumber(v) {
     if (v === null || v === undefined || isNaN(v)) return "-";
     return Number(v).toFixed(2);
+}
+
+function buildScoreBar(score, isAnswer) {
+    let num = 0;
+    let cls = "score-bar-zero";
+
+    if (isAnswer) {
+        num = 100;
+        cls = "score-bar-pos";
+    } else if (typeof score === "number") {
+        num = Math.max(-100, Math.min(100, score));
+        if (num > 0) cls = "score-bar-pos";
+        else if (num < 0) cls = "score-bar-neg";
+        else cls = "score-bar-zero";
+        num = Math.abs(num);
+    } else {
+        num = 0;
+    }
+
+    const pct = num;
+    return `<div class="score-bar-wrap">
+                <div class="score-bar ${cls}" style="width:${pct}%;"></div>
+            </div>`;
 }
 
 // =============================
@@ -183,6 +276,7 @@ async function sendGuess() {
 
         document.getElementById("word-input").value = "";
 
+        lastSubmittedKey = `${data.team}::${data.word}`;
         loadLeaderboard();
     } catch (e) {
         console.error(e);
@@ -197,6 +291,7 @@ async function loadLeaderboard() {
     const lbMeta = document.getElementById("lb-meta");
     const lbBody = document.getElementById("lb-body");
     const metaText = document.getElementById("meta-text");
+    const lbHeader = document.getElementById("lb-header");
 
     try {
         const res = await fetch("/leaderboard");
@@ -208,53 +303,80 @@ async function loadLeaderboard() {
         if (list.length === 0) {
             lbBody.innerHTML = `<tr><td colspan="4">아직 제출 없음</td></tr>`;
         } else {
-            lbBody.innerHTML = list.map(item => `
-                <tr>
+            lbBody.innerHTML = list.map(item => {
+                const isAnswer = item.is_answer === true || item.score === "정답!";
+                const key = `${item.team}::${item.word}`;
+                const teamColor = getTeamColor(item.team);
+                const scoreDisplay = (typeof item.score === "number")
+                    ? safeNumber(item.score)
+                    : item.score;
+
+                return `
+                <tr data-key="${key}" class="${key === lastSubmittedKey ? "row-highlight" : ""}">
                     <td>${item.rank}</td>
-                    <td>${item.team}</td>
+                    <td>
+                        <span class="team-pill" style="border-color:${teamColor}; color:${teamColor};">
+                            ${item.team}
+                        </span>
+                    </td>
                     <td>${item.word}</td>
-                    <td>${typeof item.score === "number" ? safeNumber(item.score) : item.score}</td>
-                </tr>
-            `).join("");
+                    <td>
+                        <div class="score-cell">
+                            <span class="score-number">${scoreDisplay}</span>
+                            ${buildScoreBar(item.score, isAnswer)}
+                        </div>
+                    </td>
+                </tr>`;
+            }).join("");
         }
 
-        // 상단(입력 카드) 메타 문구 + 리더보드 하단 설명 문구
+        const answerScore = json.answer_score;
         const best = json.best;
-        const tenth = json.tenth;
+        const twentieth = json.twentieth;
         const thousandth = json.thousandth;
 
-        if (best === null || best === undefined) {
+        if (answerScore === null && best === null) {
+            lbHeader.textContent = "정답 정보가 아직 설정되지 않았습니다.";
             metaText.textContent = "아직 어떤 팀도 단어를 제출하지 않았습니다.";
             lbMeta.textContent = "아직 어떤 팀도 단어를 제출하지 않았습니다.";
             return;
         }
 
-        const bestStr = safeNumber(best);
-        let textLines = [];
-
-        // 입력 카드 상단 문구
-        textLines.push(`정답과 가장 유사한 단어의 점수는 ${bestStr}점 입니다.`);
-
-        // 10번째 / 1000번째 문구
-        if (tenth !== null && tenth !== undefined) {
-            const tenthStr = safeNumber(tenth);
-            if (thousandth !== null && thousandth !== undefined) {
-                const thousandthStr = safeNumber(thousandth);
-                textLines.push(`10번째로 유사한 단어의 점수는 ${tenthStr}점이고, 1,000번째로 유사한 단어의 점수는 ${thousandthStr}점 입니다.`);
-            } else {
-                textLines.push(`10번째로 유사한 단어의 점수는 ${tenthStr}점 입니다. (아직 1,000개 이상 단어가 제출되지 않았습니다.)`);
-            }
-        } else {
-            textLines.push(`아직 10개 이상 단어가 제출되지 않았습니다.`);
+        const linesTop = [];
+        if (answerScore !== null && answerScore !== undefined) {
+            linesTop.push(`정답 단어의 유사도 점수는 ${safeNumber(answerScore)}점 입니다.`);
         }
 
-        metaText.innerHTML = textLines.join("<br />");
-        lbMeta.innerHTML = textLines.join("<br />");
+        if (best !== null && best !== undefined) {
+            const bestStr = safeNumber(best);
+            linesTop.push(`정답과 가장 유사한 단어의 점수는 ${bestStr}점 입니다.`);
+        }
+
+        const linesBottom = [];
+        if (twentieth !== null && twentieth !== undefined) {
+            const twentiethStr = safeNumber(twentieth);
+            if (thousandth !== null && thousandth !== undefined) {
+                const thousandthStr = safeNumber(thousandth);
+                linesBottom.push(`20번째로 유사한 단어의 점수는 ${twentiethStr}점이고, 1,000번째로 유사한 단어의 점수는 ${thousandthStr}점 입니다.`);
+            } else {
+                linesBottom.push(`20번째로 유사한 단어의 점수는 ${twentiethStr}점 입니다. (아직 1,000개 이상 단어가 제출되지 않았습니다.)`);
+            }
+        } else {
+            linesBottom.push(`아직 20개 이상 단어가 제출되지 않았습니다.`);
+        }
+
+        const headerHtml = [...linesTop].join("<br />");
+        const metaHtml = [...linesTop, ...linesBottom].join("<br />");
+
+        lbHeader.innerHTML = headerHtml || "정답 정보가 아직 설정되지 않았습니다.";
+        metaText.innerHTML = metaHtml;
+        lbMeta.innerHTML = metaHtml;
 
     } catch (e) {
         console.error(e);
         lbMeta.textContent = "리더보드 로딩 실패";
-        document.getElementById("meta-text").textContent = "리더보드 정보를 불러오지 못했습니다.";
+        metaText.textContent = "리더보드 정보를 불러오지 못했습니다.";
+        lbHeader.textContent = "정답 정보가 아직 설정되지 않았습니다.";
     }
 }
 
