@@ -12,6 +12,18 @@ from typing import List, Dict, Optional
 
 
 app = FastAPI()
+# ============================
+# 50,000 단어 사전 자동 생성
+# ============================
+WORDS_50K = "words_50000.json"
+
+if not os.path.exists(WORDS_50K):
+    print("[자동 실행] words_50000.json 없음 → make_words.py 실행 시작")
+    try:
+        subprocess.run(["python", "make_words.py"], check=True)
+        print("[자동 실행] make_words.py 실행 완료!")
+    except Exception as e:
+        print("[ERROR] make_words.py 실행 실패:", e)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
