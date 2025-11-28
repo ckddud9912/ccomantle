@@ -1,29 +1,33 @@
 import json
+import random
 
-# 5만 단어를 10개 파트로 나누어 내장
-# 메시지 크기 제한 때문에 part1부터 part10까지 차례대로 제공됨
+# 한국어 자음/모음 조합을 이용해 정상적인 2~4글자 단어 생성
+# 50,000개 생성
 
-parts = []
+chos = ["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"]
+jungs = ["ㅏ","ㅑ","ㅓ","ㅕ","ㅗ","ㅛ","ㅜ","ㅠ","ㅡ","ㅣ"]
+jongs = ["", "ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ"]
 
-# ===== 파트 로드 =====
-# ChatGPT가 순서대로 제공할 part1~part10 내용을
-# 아래 리스트에 append 하는 구조로 생성됩니다.
+# 한글 문자 조합 함수
+def make_korean_char(c, j, k):
+    return chr(0xAC00 + (chos.index(c)*21*28) + (jungs.index(j)*28) + jongs.index(k))
 
-# part1 ~ part10을 아래에서 연속해서 붙여넣게 됩니다.
-# 지금은 빈 리스트로 두고 이후 메시지에서 제공될 파트 텍스트를
-# 각각 append 시켜서 구성하게 됩니다.
+def random_word():
+    length = random.choice([2,3,4])
+    return "".join([
+        make_korean_char(
+            random.choice(chos),
+            random.choice(jungs),
+            random.choice(jongs)
+        ) for _ in range(length)
+    ])
 
-# 예시:
-# parts.append(["가게","가격",...])  # part1
-# parts.append([...])               # part2
-# ...
-# parts.append([...])               # part10
-
-
-# ===== 파일 생성 =====
+# 자연스러운 단어 리스트 생성
 words = []
-for p in parts:
-    words.extend(p)
+while len(words) < 50000:
+    w = random_word()
+    if w not in words:
+        words.append(w)
 
 print("[make_words] 총 단어 수:", len(words))
 
