@@ -1,3 +1,4 @@
+import subprocess, os
 import run_embed
 import uvicorn
 from fastapi import FastAPI, Request
