@@ -1,17 +1,18 @@
-import subprocess, os
+import subprocess
+import os
 import run_embed
 import uvicorn
+
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 import numpy as np
 import json
-import os
 from typing import List, Dict, Optional
 
-
 app = FastAPI()
+
 # ============================
 # 50,000 단어 사전 자동 생성
 # ============================
@@ -24,7 +25,14 @@ if not os.path.exists(WORDS_50K):
         print("[자동 실행] make_words.py 실행 완료!")
     except Exception as e:
         print("[ERROR] make_words.py 실행 실패:", e)
+
+# Static 파일 설정은 여기
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# ==================================================
+# 아래부터 GLOBAL STATE & API 라우트는 원래 코드 유지
+# ==================================================
+
 
 
 # ============================================================
