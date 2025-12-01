@@ -14,7 +14,6 @@
         gap: 40px;
     }
 
-    /* 왼쪽 입력 박스 */
     .left-box {
         width: 40%;
         background: #111827;
@@ -23,16 +22,7 @@
         border: 1px solid #1f2937;
     }
 
-    .left-box h1 {
-        font-size: 28px;
-        margin-bottom: 10px;
-    }
-
-    .left-box small {
-        opacity: 0.8;
-    }
-
-    input {
+    input, select {
         width: 100%;
         padding: 12px;
         margin-top: 10px;
@@ -41,6 +31,16 @@
         background: #1f2937;
         color: #fff;
         font-size: 16px;
+    }
+
+    #teamColor {
+        width: 100%;
+        margin-top: 10px;
+        height: 45px;
+        border-radius: 8px;
+        cursor: pointer;
+        padding: 0;
+        border: none;
     }
 
     button {
@@ -55,13 +55,6 @@
         font-weight: bold;
     }
 
-    /* 결과 출력 */
-    .result-text {
-        margin-top: 15px;
-        font-size: 16px;
-    }
-
-    /* 오른쪽 리더보드 박스 */
     .right-box {
         flex-grow: 1;
         background: #111827;
@@ -70,46 +63,35 @@
         border: 1px solid #1f2937;
     }
 
-    .right-title {
-        font-size: 28px;
-        margin-bottom: 5px;
-    }
-
-    .hint-box {
-        margin-bottom: 15px;
-        opacity: 0.9;
-    }
-
     table {
         width: 100%;
         border-collapse: collapse;
         margin-top: 15px;
         font-size: 15px;
+        text-align: center;
     }
 
     th, td {
         padding: 10px;
         border-bottom: 1px solid #374151;
-        text-align: center;
     }
 
-    .bar-box {
+    .rank-bar-box {
         width: 100%;
         height: 10px;
         background: #374151;
         border-radius: 6px;
         overflow: hidden;
-        margin-top: 3px;
+        margin-top: 4px;
     }
 
-    .bar-fill {
+    .rank-bar-fill {
         height: 100%;
-        transition: width 0.5s ease;
-        background: #f97316;
+        transition: width 0.4s ease;
     }
 
-    .row-appear {
-        animation: fadeIn 0.4s ease;
+    .new-row {
+        animation: fadeIn 0.5s ease;
     }
 
     @keyframes fadeIn {
@@ -121,34 +103,30 @@
 
 <body>
 
-<!-- 왼쪽 영역 -->
 <div class="left-box">
     <h1>🎮 꼬맨틀 게임</h1>
-    <small>오늘의 정답 단어를 맞춰보세요!</small>
-
-    <p id="guide-text" style="opacity:0.8; margin-top:15px; font-size:14px;">
-        정답 단어의 유사도 점수는 100.00점 입니다.<br>
-        정답과 가장 유사한 단어의 점수는 <span id="best0">-</span>점 입니다.<br>
-        아직 20개 이상 단어가 제출되지 않았습니다.
-    </p>
 
     <input id="team" placeholder="팀 이름 입력">
-    <input id="word" placeholder="제출 단어 (예: 바다 / 노을 / 친절)">
+
+    <!-- 팀 색상 선택 추가 -->
+    <label style="margin-top:10px; display:block; opacity:0.8;">팀 색상 선택</label>
+    <input type="color" id="teamColor">
+
+    <input id="word" placeholder="제출 단어 입력">
+
     <button onclick="sendGuess()">제출</button>
 
-    <div class="result-text" id="latest"></div>
+    <div id="latest"></div>
 </div>
 
-<!-- 오른쪽 영역 -->
 <div class="right-box">
-    <div class="right-title">🏆 리더보드</div>
+    <h2>🏆 리더보드</h2>
 
-    <!-- 유사도 안내 영역 (2번 UI의 요소) -->
-    <div class="hint-box">
-        정답과 가장 유사한 단어 유사도: <span id="best"></span><br>
-        20번째로 유사한 단어 유사도: <span id="tw"></span><br>
-        1000번째로 유사한 단어 유사도: <span id="th"></span>
-    </div>
+    <p class="hint-box">
+        최상위 유사도: <span id="best"></span><br>
+        20위 유사도: <span id="tw"></span><br>
+        1000위 유사도: <span id="th"></span>
+    </p>
 
     <table>
         <thead>
@@ -156,28 +134,50 @@
                 <th>순위</th>
                 <th>팀</th>
                 <th>단어</th>
-                <th>점수</th>
-                <th>유사도 바</th>
+                <th>유사도</th>
+                <th>유사도 순위</th>
             </tr>
         </thead>
         <tbody id="tbody"></tbody>
     </table>
-
 </div>
 
 <script>
-let teamColors = {};
+let teamColors = {};           // 팀 이름 → 색상 매핑
+let seenEntries = new Set();   // 신규 단어 판단용
+
+// 팀 색상 결정 (직접 선택 가능)
 function getTeamColor(team) {
-    if (!teamColors[team]) {
-        teamColors[team] = "#" + Math.floor(Math.random()*16777215).toString(16);
+    if (teamColors[team]) return teamColors[team];
+
+    // 팀이 색을 직접 선택한 경우 우선 적용
+    const selected = document.getElementById("teamColor").value;
+    if (selected) {
+        teamColors[team] = selected;
+        return selected;
     }
-    return teamColors[team];
+
+    // 없다면 랜덤 색
+    const newColor = "#" + Math.floor(Math.random()*16777215).toString(16);
+    teamColors[team] = newColor;
+    return newColor;
 }
+
+// Enter 입력으로 제출 가능하도록 설정
+document.getElementById("word").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        sendGuess();
+    }
+});
 
 async function sendGuess() {
     const team = document.getElementById("team").value.trim();
     const word = document.getElementById("word").value.trim();
     if (!team || !word) return;
+
+    // 팀 색 저장
+    const selectedColor = document.getElementById("teamColor").value;
+    if (selectedColor) teamColors[team] = selectedColor;
 
     const res = await fetch("/guess", {
         method: "POST",
@@ -187,8 +187,9 @@ async function sendGuess() {
     const data = await res.json();
 
     if (data.entry) {
-        document.getElementById("latest").innerHTML =
-            `[${data.entry.team}] ${data.entry.word} → 점수 ${Math.round(data.entry.score)}, 순위 ${data.entry.rank}`;
+        const textRank = data.entry.is_answer ? "정답!" : data.entry.rank;
+        document.getElementById("latest").innerText =
+            `[${data.entry.team}] ${data.entry.word} → 유사도 ${data.entry.similarity.toFixed(3)} / ${textRank}`;
     }
 
     loadBoard();
@@ -198,53 +199,55 @@ async function loadBoard() {
     const res = await fetch("/leaderboard");
     const data = await res.json();
 
-    // 안내 표시
-    document.getElementById("best").innerText = data.sim_top1?.toFixed(4) || "-";
-    document.getElementById("tw").innerText = data.sim_top20?.toFixed(4) || "-";
-    document.getElementById("th").innerText = data.sim_top1000?.toFixed(4) || "-";
+    document.getElementById("best").innerText = data.sim_top1?.toFixed(3) || "-";
+    document.getElementById("tw").innerText = data.sim_top20?.toFixed(3) || "-";
+    document.getElementById("th").innerText = data.sim_top1000?.toFixed(3) || "-";
 
-    document.getElementById("best0").innerText = data.sim_top1 ? (data.sim_top1 * 100).toFixed(2) : "-";
-
-    // 리더보드
     const tb = document.getElementById("tbody");
     tb.innerHTML = "";
 
     let rankNum = 1;
+
     for (let row of data.submissions) {
+        const key = row.team + "_" + row.word;
 
         const tr = document.createElement("tr");
-        tr.classList.add("row-appear");
 
-        const rankTd = document.createElement("td");
-        rankTd.innerText = rankNum++;
-        tr.appendChild(rankTd);
+        if (!seenEntries.has(key)) {
+            tr.classList.add("new-row");
+            seenEntries.add(key);
+        }
 
-        const teamTd = document.createElement("td");
-        teamTd.innerText = row.team;
-        tr.appendChild(teamTd);
+        // 정답 표시
+        let rankText = row.rank;
+        if (row.is_answer) {
+            rankText = "정답!";
+        } else if (row.rank === "???" || row.rank > 1000) {
+            rankText = "1000위 이상";
+        }
 
-        const wordTd = document.createElement("td");
-        wordTd.innerText = row.word;
-        tr.appendChild(wordTd);
+        // 순위 막대
+        let barWidth = 0;
+        if (typeof row.rank === "number" && row.rank <= 1000 && !row.is_answer) {
+            barWidth = ((1000 - row.rank) / 1000) * 100;
+        } else if (row.is_answer) {
+            barWidth = 100;
+        }
 
-        const scoreTd = document.createElement("td");
-        scoreTd.innerText = Math.round(row.score);
-        tr.appendChild(scoreTd);
-
-        const barTd = document.createElement("td");
-        const box = document.createElement("div");
-        box.className = "bar-box";
-
-        const fill = document.createElement("div");
-        fill.className = "bar-fill";
-
-        const pct = (row.score + 100) / 200 * 100;
-        fill.style.width = pct + "%";
-        fill.style.background = getTeamColor(row.team);
-
-        box.appendChild(fill);
-        barTd.appendChild(box);
-        tr.appendChild(barTd);
+        tr.innerHTML = `
+            <td>${rankNum++}</td>
+            <td>${row.team}</td>
+            <td>${row.word}</td>
+            <td>${row.similarity.toFixed(3)}</td>
+            <td>
+                ${rankText}
+                <div class="rank-bar-box">
+                    <div class="rank-bar-fill"
+                        style="width:${barWidth}%; background:${getTeamColor(row.team)};">
+                    </div>
+                </div>
+            </td>
+        `;
 
         tb.appendChild(tr);
     }

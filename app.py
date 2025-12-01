@@ -26,18 +26,12 @@ if not os.path.exists(WORDS_50K):
     except Exception as e:
         print("[ERROR] make_words.py 실행 실패:", e)
 
-# Static 파일 설정은 여기
+# Static 파일
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ==================================================
-# 아래부터 GLOBAL STATE & API 라우트는 원래 코드 유지
+# GLOBAL STATE
 # ==================================================
-
-
-
-# ============================================================
-#  1) GLOBAL STATE
-# ============================================================
 
 answer_word: Optional[str] = None
 answer_vector: Optional[np.ndarray] = None
@@ -52,9 +46,9 @@ sim_top20 = None
 sim_top1000 = None
 
 
-# ============================================================
-#  2) LOAD EMBEDDING DICTIONARY & WORD LIST
-# ============================================================
+# ==================================================
+# LOAD EMBEDDING DICTIONARY
+# ==================================================
 
 def load_embedding_dictionary():
     global embedding_dict, words_list
@@ -72,34 +66,21 @@ def load_embedding_dictionary():
 load_embedding_dictionary()
 
 
-# ============================================================
-#  3) UTIL — COSINE 유사도
-# ============================================================
+# ==================================================
+# COSINE 유사도
+# ==================================================
 
 def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b))
 
 
-# ============================================================
-#  4) UTIL — 점수 스케일링(S-curve)
-# ============================================================
-
-def score_from_cosine(cos: float) -> float:
-    sim = (cos + 1) / 2
-    curved = sim ** 4.2
-    score = curved * 120 - 40
-    return max(-100, min(100, score))
-
-
-# ============================================================
-#  5) MODEL — 정답 설정 시 랭킹 테이블 생성
-# ============================================================
+# ==================================================
+# 정답 설정 시 랭킹 테이블 생성
+# ==================================================
 
 def compute_answer_ranking():
     global answer_vector, word_to_rank
     global sim_top1, sim_top20, sim_top1000
-
-    word_to_rank.clear()
 
     sims = []
     for w in words_list:
@@ -108,6 +89,7 @@ def compute_answer_ranking():
 
     sims.sort(key=lambda x: x[1], reverse=True)
 
+    word_to_rank.clear()
     for idx, (w, _) in enumerate(sims):
         word_to_rank[w] = idx + 1
 
@@ -118,9 +100,9 @@ def compute_answer_ranking():
     print("[INFO] 정답 기준 랭킹 테이블 생성 완료")
 
 
-# ============================================================
-#  6) REQUEST MODELS
-# ============================================================
+# ==================================================
+# REQUEST MODELS
+# ==================================================
 
 class SetAnswerRequest(BaseModel):
     answer: str
@@ -131,16 +113,16 @@ class GuessRequest(BaseModel):
     word: str
 
 
-# ============================================================
-#  7) ENDPOINT — 정답 설정
-# ============================================================
+# ==================================================
+# ENDPOINT — 정답 설정
+# ==================================================
 
 @app.post("/set_answer")
 def set_answer(req: SetAnswerRequest):
     global answer_word, answer_vector, submissions
 
     if req.answer not in embedding_dict:
-        return JSONResponse({"error": "정답이 사전 단어(words_5000.json)에 없습니다."})
+        return JSONResponse({"error": "정답이 사전 단어에 없습니다."})
 
     answer_word = req.answer
     answer_vector = np.array(embedding_dict[answer_word])
@@ -151,9 +133,9 @@ def set_answer(req: SetAnswerRequest):
     return {"status": "ok", "answer": answer_word}
 
 
-# ============================================================
-#  8) ENDPOINT — 추측 입력
-# ============================================================
+# ==================================================
+# ENDPOINT — 추측 입력
+# ==================================================
 
 @app.post("/guess")
 def guess(req: GuessRequest):
@@ -168,37 +150,31 @@ def guess(req: GuessRequest):
     if len(word) == 0:
         return JSONResponse({"error": "단어가 비어 있습니다."})
 
-    # 중복 제출 방지 (같은 팀이 같은 단어 제출)
+    # 중복 제출 방지
     for s in submissions:
         if s["team"] == team and s["word"] == word:
             return {"result": "duplicate"}
 
-    # 정답 처리
+    # 정답 입력
     if word == answer_word:
         entry = {
             "team": team,
             "word": word,
             "is_answer": True,
             "rank": 1,
-            "score": 100,
-            "cosine": 1.0
+            "similarity": 1.000
         }
         submissions.append(entry)
         return {"result": "correct", "entry": entry}
 
-    # 벡터 계산
+    # 벡터 유사도 계산
     if word in embedding_dict:
         vec = np.array(embedding_dict[word])
         cos = cosine_sim(answer_vector, vec)
-        score = score_from_cosine(cos)
+        similarity = round(float(cos), 3)
         rank = word_to_rank.get(word, None)
     else:
-        # 사전 외 단어: ??? 처리
-        cos = cosine_sim(
-            answer_vector,
-            np.array([0] * len(answer_vector))
-        )
-        score = score_from_cosine(cos)
+        similarity = -1.000
         rank = None
 
     entry = {
@@ -206,21 +182,20 @@ def guess(req: GuessRequest):
         "word": word,
         "is_answer": False,
         "rank": rank if rank is not None else "???",
-        "score": score,
-        "cosine": cos
+        "similarity": similarity
     }
 
     submissions.append(entry)
     return {"result": "ok", "entry": entry}
 
 
-# ============================================================
-#  9) ENDPOINT — 리더보드
-# ============================================================
+# ==================================================
+# 리더보드
+# ==================================================
 
 @app.get("/leaderboard")
 def leaderboard():
-    sorted_submissions = sorted(submissions, key=lambda x: (-x["score"]))
+    sorted_submissions = sorted(submissions, key=lambda x: (-x["similarity"]))
     return {
         "submissions": sorted_submissions,
         "answer": answer_word,
@@ -230,9 +205,9 @@ def leaderboard():
     }
 
 
-# ============================================================
-#  10) STATIC PAGES
-# ============================================================
+# ==================================================
+# STATIC PAGES
+# ==================================================
 
 @app.get("/", response_class=HTMLResponse)
 def index():
@@ -252,9 +227,9 @@ def admin_page():
         return HTMLResponse(f.read())
 
 
-# ============================================================
-#  11) RUN (HF에서는 무시됨)
-# ============================================================
+# ==================================================
+# RUN
+# ==================================================
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=7860)
