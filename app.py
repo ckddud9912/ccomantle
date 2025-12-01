@@ -62,7 +62,6 @@ def load_embedding_dictionary():
     words_list = list(embedding_dict.keys())
     print(f"[INFO] embedding_dictionary.json 로드 완료 — {len(words_list)}개 단어")
 
-
 load_embedding_dictionary()
 
 
@@ -106,7 +105,6 @@ def compute_answer_ranking():
 
 class SetAnswerRequest(BaseModel):
     answer: str
-
 
 class GuessRequest(BaseModel):
     team: str
