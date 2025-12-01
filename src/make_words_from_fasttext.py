@@ -8,8 +8,11 @@ FASTTEXT_EXE = r"C:\Users\창영\Desktop\fasttext\fasttext.exe"
 # ▶ 한국어 FastText 모델 경로 (.bin 파일)
 MODEL_PATH = r"C:\Users\창영\Desktop\fasttext\cc.ko.300.bin"
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src 폴더 기준
+DATA_PATH = os.path.dirname("../data")
+
 # ▶ 출력 파일
-OUTPUT_FILE = "words_50000.json"
+OUTPUT_FILE = DATA_PATH + "/words_50000.json"
 
 
 def extract_words():

@@ -4,8 +4,12 @@ from typing import List, Dict
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
-WORDS_FILE = "words_50000.json"            # ← 5만 단어 리스트 사용
-OUTPUT_FILE = "embedding_dictionary.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src 폴더 기준
+DATA_PATH = os.path.join(BASE_DIR, "../data")
+
+
+WORDS_FILE = os.path.join(DATA_PATH, "words_50000.json")           # ← 5만 단어 리스트 사용
+OUTPUT_FILE = os.path.join(DATA_PATH, "embedding_dictionary.json")
 MODEL_NAME = "jhgan/ko-sroberta-multitask"
 BATCH_SIZE = 64
 

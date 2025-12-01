@@ -1,6 +1,10 @@
 import fasttext
 import json
 import re
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src 폴더 기준
+DATA_PATH = os.path.dirname("../data")
 
 # 🔥 여기만 네 컴퓨터 경로에 맞게 변경
 MODEL_PATH = r"C:\Users\창영\Desktop\cc.ko.300.bin"
@@ -30,7 +34,7 @@ def main():
     final = valid[:50000]
     print(f"✔ 최종 50,000개 단어 선택 완료")
 
-    with open("words_50000.json", "w", encoding="utf-8") as f:
+    with open(DATA_PATH + "/words_50000.json", "w", encoding="utf-8") as f:
         json.dump(final, f, ensure_ascii=False, indent=2)
 
     print("🎉 words_50000.json 생성 완료!")

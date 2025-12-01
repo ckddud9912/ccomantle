@@ -13,12 +13,18 @@ from typing import List, Dict, Optional
 
 app = FastAPI()
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src 폴더 기준
+
+
 # ============================
 # 50,000 단어 사전 자동 생성
 # ============================
-WORDS_50K = "words_50000.json"
 
-if not os.path.exists(WORDS_50K):
+DATA_DIR = os.path.join(BASE_DIR, "../data")
+
+STATIC_DIR = os.path.join(BASE_DIR, "../static")
+
+if not os.path.exists(DATA_DIR + "/words_50000.json"):
     print("[자동 실행] words_50000.json 없음 → make_words.py 실행 시작")
     try:
         subprocess.run(["python", "make_words.py"], check=True)
@@ -52,11 +58,11 @@ sim_top1000 = None
 
 def load_embedding_dictionary():
     global embedding_dict, words_list
-    if not os.path.exists("embedding_dictionary.json"):
+    if not os.path.exists(DATA_DIR + "/embedding_dictionary.json"):
         print("embedding_dictionary.json 파일이 없습니다.")
         return
 
-    with open("embedding_dictionary.json", "r", encoding="utf-8") as f:
+    with open(DATA_DIR + "embedding_dictionary.json", "r", encoding="utf-8") as f:
         embedding_dict = json.load(f)
 
     words_list = list(embedding_dict.keys())
@@ -209,19 +215,19 @@ def leaderboard():
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    with open("static/index.html", "r", encoding="utf-8") as f:
+    with open(STATIC_DIR + "/index.html", "r", encoding="utf-8") as f:
         return HTMLResponse(f.read())
 
 
 @app.get("/game", response_class=HTMLResponse)
 def game_page():
-    with open("static/game.html", "r", encoding="utf-8") as f:
+    with open(STATIC_DIR + "/game.html", "r", encoding="utf-8") as f:
         return HTMLResponse(f.read())
 
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin_page():
-    with open("static/admin.html", "r", encoding="utf-8") as f:
+    with open(STATIC_DIR + "/admin.html", "r", encoding="utf-8") as f:
         return HTMLResponse(f.read())
 
 

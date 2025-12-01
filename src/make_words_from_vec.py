@@ -1,11 +1,15 @@
-import json
+import json,os
 import re
 
 # 🔥 .vec 파일 경로 (압축 풀린 파일)
 VEC_PATH = r"C:\Users\창영\Desktop\fasttext\cc.ko.300.vec"
 
+ASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src 폴더 기준
+DATA_PATH = os.path.dirname("../data")
+
+
 # 🔥 결과 저장 파일
-OUTPUT = "words_50000.json"
+OUTPUT = DATA_PATH+ "/words_50000.json"
 
 # ---------------------------
 # 🔍 정규식 필터 정의
