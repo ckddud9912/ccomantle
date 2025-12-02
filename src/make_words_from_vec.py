@@ -4,8 +4,8 @@ import re
 # 🔥 .vec 파일 경로 (압축 풀린 파일)
 VEC_PATH = r"C:\Users\창영\Desktop\fasttext\cc.ko.300.vec"
 
-ASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src 폴더 기준
-DATA_PATH = os.path.dirname("../data")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src 폴더 기준
+DATA_PATH = os.path.join(BASE_DIR, "..", "data")
 
 
 # 🔥 결과 저장 파일
@@ -20,7 +20,6 @@ KOREAN_PATTERN = re.compile(r"^[가-힣]+$")
 
 # 부사 패턴 (게, 히로 끝나는 단어 제외)
 ADVERB_PATTERN = re.compile(r".+(게|히)$")
-
 
 def is_valid_word(word):
     """모든 필터 조건을 만족하는지 검사"""

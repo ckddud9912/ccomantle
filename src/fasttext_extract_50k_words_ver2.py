@@ -8,14 +8,10 @@ import os
 # 🔥 FastText 모델 경로
 MODEL_PATH = r"C:\Users\창영\Desktop\cc.ko.300.bin"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src 폴더 기준
-DATA_PATH = os.path.dirname("../data")
+DATA_PATH = os.path.join(BASE_DIR, "..", "data")
 
 # 🔹 출력 파일
-OUTPUT_FILE = "embedding_dictionary.json"
-
-
-
-
+OUTPUT_FILE = DATA_PATH + "/embedding_dictionary.json"
 
 # 🔹 top-k 필터링 (예: 50,000개)
 TOP_K = 50000

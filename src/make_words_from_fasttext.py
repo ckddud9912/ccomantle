@@ -9,7 +9,7 @@ FASTTEXT_EXE = r"C:\Users\창영\Desktop\fasttext\fasttext.exe"
 MODEL_PATH = r"C:\Users\창영\Desktop\fasttext\cc.ko.300.bin"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src 폴더 기준
-DATA_PATH = os.path.dirname("../data")
+DATA_PATH = os.path.join(BASE_DIR, "..", "data")
 
 # ▶ 출력 파일
 OUTPUT_FILE = DATA_PATH + "/words_50000.json"
@@ -32,12 +32,7 @@ def extract_words():
     # -------------------------------
     # FastText 단어 목록 추출
     # -------------------------------
-    cmd = [
-        FASTTEXT_EXE,
-        "dump",
-        "vocab",
-        MODEL_PATH
-    ]
+    cmd = [FASTTEXT_EXE, "dump", "vocab", MODEL_PATH]
 
     print("📌 실행:", " ".join(cmd))
 

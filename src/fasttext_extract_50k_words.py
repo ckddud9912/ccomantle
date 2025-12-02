@@ -4,7 +4,7 @@ import re
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src 폴더 기준
-DATA_PATH = os.path.dirname("../data")
+DATA_PATH = os.path.join(BASE_DIR, "..", "data")
 
 # 🔥 여기만 네 컴퓨터 경로에 맞게 변경
 MODEL_PATH = r"C:\Users\창영\Desktop\cc.ko.300.bin"
