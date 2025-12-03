@@ -1,5 +1,6 @@
-# === app.py - 완성본 ===
+# === app.py - 완성본 (유사도 정규화 포함) ===
 import os
+import math
 from typing import List, Dict, Optional
 
 import numpy as np
@@ -10,6 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+
 # ==================================================
 # 전역 상태
 # ==================================================
@@ -19,16 +21,20 @@ word_to_rank: Dict[str, int] = {}
 answer_word: Optional[str] = None
 answer_vector: Optional[np.ndarray] = None
 
-# 라운드 관리
 MAX_ROUNDS = 6
 current_round: int = 1
 rounds: Dict[int, List[Dict]] = {i: [] for i in range(1, MAX_ROUNDS + 1)}
 
-game_finished: bool = False   # ← 경기 종료 플래그
+game_finished: bool = False
 
 sim_top1: Optional[float] = None
 sim_top20: Optional[float] = None
 sim_top1000: Optional[float] = None
+
+# 유사도 스케일링 파라미터
+SIM_ALPHA: float = 1.0          # s' = s ** SIM_ALPHA
+TARGET_TOP1000: float = 0.63    # 1000위 목표 값
+
 
 # ==================================================
 # 디렉토리
@@ -37,6 +43,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 STATIC_DIR = os.path.join(ROOT_DIR, "static")
 DATA_DIR = os.path.join(ROOT_DIR, "data")
+
 
 # ==================================================
 # FastAPI
@@ -74,20 +81,51 @@ def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b) / (na * nb))
 
 
-def compute_answer_ranking() -> None:
-    global word_to_rank, sim_top1, sim_top20, sim_top1000
+def apply_sim_scaling(raw_sim: float) -> float:
+    """
+    raw_sim: 코사인 유사도 [-1,1] 가정.
+    음수는 0으로 클램프하고, 양수는 s ** SIM_ALPHA 로 변환.
+    """
+    if raw_sim <= 0:
+        return 0.0
+    return raw_sim ** SIM_ALPHA
 
-    sims = []
+
+def compute_answer_ranking() -> None:
+    """
+    1) 정답 기준 raw similarity 계산
+    2) raw 기준으로 랭킹/1000위 값 계산
+    3) 1000위가 TARGET_TOP1000 이 되도록 SIM_ALPHA 계산
+    4) 스케일링 된 값 기준으로 sim_top1,20,1000 갱신
+    """
+    global word_to_rank, sim_top1, sim_top20, sim_top1000, SIM_ALPHA
+
+    sims_raw = []
     for w, vec_list in embedding_dict.items():
         v = np.array(vec_list, dtype=float)
-        sims.append((w, cosine_sim(answer_vector, v)))
+        sims_raw.append((w, cosine_sim(answer_vector, v)))
 
-    sims.sort(key=lambda x: x[1], reverse=True)
-    word_to_rank = {w: idx + 1 for idx, (w, _) in enumerate(sims)}
+    sims_raw.sort(key=lambda x: x[1], reverse=True)
+    word_to_rank = {w: idx + 1 for idx, (w, _) in enumerate(sims_raw)}
 
-    sim_top1 = sims[0][1]
-    sim_top20 = sims[min(19, len(sims) - 1)][1]
-    sim_top1000 = sims[min(999, len(sims) - 1)][1]
+    # raw 기준 상위 값들
+    sim_top1_raw = sims_raw[0][1]
+    sim_top20_raw = sims_raw[min(19, len(sims_raw) - 1)][1]
+    sim_top1000_raw = sims_raw[min(999, len(sims_raw) - 1)][1]
+
+    # SIM_ALPHA 계산: (sim_top1000_raw ** alpha = TARGET_TOP1000)
+    if 0 < sim_top1000_raw < 1:
+        SIM_ALPHA = math.log(TARGET_TOP1000) / math.log(sim_top1000_raw)
+    else:
+        SIM_ALPHA = 1.0
+
+    print(f"[INFO] sim_top1000_raw={sim_top1000_raw:.4f}, "
+          f"SIM_ALPHA={SIM_ALPHA:.4f}")
+
+    # 스케일링 된 값으로 최종 지표 셋팅
+    sim_top1 = apply_sim_scaling(sim_top1_raw)
+    sim_top20 = apply_sim_scaling(sim_top20_raw)
+    sim_top1000 = apply_sim_scaling(sim_top1000_raw)
 
 
 # ==================================================
@@ -171,7 +209,10 @@ async def guess(req: GuessRequest):
         return JSONResponse({"error": "사전에 없는 단어입니다."})
 
     vec = np.array(embedding_dict[word], dtype=float)
-    similarity = round(cosine_sim(answer_vector, vec), 3)
+    raw_sim = cosine_sim(answer_vector, vec)
+    norm_sim = apply_sim_scaling(raw_sim)
+
+    similarity = round(norm_sim, 3)
     rank = word_to_rank.get(word)
 
     entry = {
@@ -213,7 +254,9 @@ async def top1000():
     sims = []
     for w, vec_list in embedding_dict.items():
         v = np.array(vec_list, dtype=float)
-        sims.append((w, cosine_sim(answer_vector, v)))
+        raw_sim = cosine_sim(answer_vector, v)
+        norm_sim = apply_sim_scaling(raw_sim)
+        sims.append((w, norm_sim))
 
     sims.sort(key=lambda x: x[1], reverse=True)
     top = sims[:1000]
@@ -221,7 +264,7 @@ async def top1000():
     return {
         "answer": answer_word,
         "top1000": [
-            {"rank": i+1, "word": w, "similarity": round(sim, 4)}
+            {"rank": i + 1, "word": w, "similarity": round(sim, 4)}
             for i, (w, sim) in enumerate(top)
         ]
     }
