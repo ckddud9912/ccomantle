@@ -1,261 +1,736 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<title>꼬맨틀 게임</title>
-<style>
+  <meta charset="UTF-8" />
+  <title>꼬맨틀 게임</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-        font-family: Arial, sans-serif;
-        background: #0d1117;
-        color: #fff;
-        margin: 0;
-        padding: 40px;
-        display: flex;
-        gap: 40px;
+      margin: 0;
+      padding: 24px;
+      background: #020617;
+      color: #e5e7eb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    .left-box {
-        width: 40%;
-        background: #111827;
-        padding: 25px;
-        border-radius: 12px;
-        border: 1px solid #1f2937;
+    .grid-2x2 {
+      display: grid;
+      grid-template-columns: 1.1fr 1.4fr;
+      grid-template-rows: 1.1fr 1.1fr;
+      gap: 24px;
+      height: calc(100vh - 48px);
     }
 
-    input, select {
-        width: 100%;
-        padding: 12px;
-        margin-top: 10px;
-        border-radius: 8px;
-        border: 1px solid #374151;
-        background: #1f2937;
-        color: #fff;
-        font-size: 16px;
+    .panel {
+      background: #020617;
+      border-radius: 14px;
+      border: 1px solid #1e293b;
+      padding: 18px 20px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.65);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
-    #teamColor {
-        width: 100%;
-        margin-top: 10px;
-        height: 45px;
-        border-radius: 8px;
-        cursor: pointer;
-        padding: 0;
-        border: none;
+    /* 1번 패널: 스크롤 가능하게 */
+    #panel-input {
+      overflow-y: auto;
+    }
+
+    .panel h2 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fbbf24;
+    }
+
+    .panel small {
+      opacity: 0.8;
+      font-size: 12px;
+    }
+
+    .field-label {
+      margin-top: 14px;
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      margin-top: 6px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 14px;
+    }
+
+    input[type="color"] {
+      width: 60px;
+      height: 32px;
+      padding: 0;
+      margin-top: 6px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      background: #020617;
+      cursor: pointer;
     }
 
     button {
-        margin-top: 15px;
-        width: 100%;
-        padding: 12px;
-        background: #fbbf24;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 18px;
-        font-weight: bold;
+      margin-top: 18px;
+      width: 100%;
+      padding: 11px 12px;
+      background: #facc15;
+      color: #111827;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
     }
 
-    .right-box {
-        flex-grow: 1;
-        background: #111827;
-        padding: 25px;
-        border-radius: 12px;
-        border: 1px solid #1f2937;
+    button:hover {
+      filter: brightness(1.05);
+    }
+
+    .latest-text {
+      margin-top: 12px;
+      font-size: 13px;
+      min-height: 18px;
+    }
+
+    .meta-line {
+      font-size: 12px;
+      margin-top: 6px;
+      opacity: 0.85;
+    }
+
+    .round-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      margin-top: 4px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+    }
+
+    .round-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #22c55e;
     }
 
     table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-        font-size: 15px;
-        text-align: center;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 10px;
     }
 
     th, td {
-        padding: 10px;
-        border-bottom: 1px solid #374151;
+      padding: 7px 6px;
+      border-bottom: 1px solid #111827;
+      text-align: center;
+      white-space: nowrap;
     }
 
-    .rank-bar-box {
-        width: 100%;
-        height: 10px;
-        background: #374151;
-        border-radius: 6px;
-        overflow: hidden;
-        margin-top: 4px;
+    th {
+      font-size: 12px;
+      color: #9ca3af;
+      font-weight: 500;
     }
 
-    .rank-bar-fill {
-        height: 100%;
-        transition: width 0.4s ease;
+    .tbody-scroll {
+      overflow-y: auto;
+      margin-top: 6px;
+      flex: 1;
     }
 
-    .new-row {
-        animation: fadeIn 0.5s ease;
+    .row-team {
+      font-weight: 600;
     }
 
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(6px); }
-        to { opacity: 1; transform: translateY(0); }
+    .sim-good { color: #22c55e; }
+    .sim-bad { color: #f97316; }
+
+    .rank-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid #1e293b;
+      background: #020617;
+      min-width: 60px;
     }
-</style>
+
+    .rank-answer {
+      border-color: #facc15;
+      color: #facc15;
+      font-weight: 700;
+    }
+
+    .bar-box {
+      width: 100%;
+      height: 8px;
+      background: #020617;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid #111827;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease-out;
+      background: #3b82f6;
+    }
+
+    .panel-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .panel-subtitle {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
+    .round-label {
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 4px;
+      color: #e5e7eb;
+    }
+
+    .round-tag {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: #0f172a;
+      font-size: 11px;
+      color: #9ca3af;
+      margin-left: 4px;
+    }
+
+    .past-scroll {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 6px;
+    }
+
+    .past-table-wrapper {
+      margin-bottom: 12px;
+      border-radius: 10px;
+      border: 1px solid #111827;
+      padding: 6px 6px 4px 6px;
+      background: #020617;
+    }
+
+    .past-table-wrapper h3 {
+      margin: 0 0 4px 0;
+      font-size: 14px;
+    }
+
+    .no-data {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-top: 8px;
+    }
+
+    /* 최종 결과 오버레이 */
+    #final-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.96);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+
+    #final-card {
+      width: min(700px, 90vw);
+      max-height: 80vh;
+      background: #020617;
+      border-radius: 18px;
+      border: 1px solid #1e293b;
+      padding: 20px 22px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+    }
+
+    #final-card h2 {
+      margin: 0 0 10px 0;
+      font-size: 22px;
+      color: #fbbf24;
+    }
+
+    #final-card p {
+      margin: 0 0 12px 0;
+      font-size: 13px;
+      color: #9ca3af;
+    }
+
+    #final-body {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 4px;
+    }
+
+    #final-close {
+      margin-top: 14px;
+      align-self: flex-end;
+      width: auto;
+      padding: 7px 12px;
+      font-size: 13px;
+      background: #111827;
+      color: #e5e7eb;
+    }
+
+    #final-table th, #final-table td {
+      padding: 7px 6px;
+    }
+  </style>
 </head>
-
 <body>
+<div class="grid-2x2">
+  <!-- 1번 영역: 입력 -->
+  <section class="panel" id="panel-input">
+    <h2>🎮 꼬맨틀 게임</h2>
+    <small>정답은 하나, 6라운드 안에 최대한 가까이 다가가 보세요.</small>
 
-<div class="left-box">
-    <h1>🎮 꼬맨틀 게임</h1>
+    <div class="round-badge" id="round-badge">
+      <span class="round-dot"></span>
+      <span id="round-label">현재 라운드: - / 6</span>
+    </div>
 
-    <input id="team" placeholder="팀 이름 입력">
+    <div class="meta-line" id="sim-meta">
+      최상위 유사도: <span id="sim-top1">-</span>,
+      20위 유사도: <span id="sim-top20">-</span>,
+      1000위 유사도: <span id="sim-top1000">-</span>
+    </div>
 
-    <!-- 팀 색상 선택 추가 -->
-    <label style="margin-top:10px; display:block; opacity:0.8;">팀 색상 선택</label>
-    <input type="color" id="teamColor">
+    <div class="field-label">팀 이름</div>
+    <input type="text" id="team" placeholder="예: 블루팀" />
 
-    <input id="word" placeholder="제출 단어 입력">
+    <div class="field-label">팀 색상 선택</div>
+    <input type="color" id="teamColor" value="#3b82f6" />
 
-    <button onclick="sendGuess()">제출</button>
+    <div class="field-label">제출 단어</div>
+    <input type="text" id="word" placeholder="예: 정수 / 기대 / 배고픔" />
 
-    <div id="latest"></div>
+    <button id="submitBtn" onclick="sendGuess()">제출</button>
+
+    <div class="latest-text" id="latest"></div>
+  </section>
+
+  <!-- 2번 영역: 현재 라운드 리더보드 -->
+  <section class="panel" id="panel-current">
+    <div class="panel-title-row">
+      <h2>🏆 현재 라운드 리더보드</h2>
+      <div class="panel-subtitle" id="answer-label"></div>
+    </div>
+
+    <div class="round-label">
+      현재 라운드: <span id="current-round-text">-</span>
+      <span class="round-tag">실시간 반영</span>
+    </div>
+
+    <div class="tbody-scroll">
+      <table>
+        <thead>
+        <tr>
+          <th>순위</th>
+          <th>팀</th>
+          <th>단어</th>
+          <th>유사도</th>
+          <th>유사도 순위</th>
+          <th>막대</th>
+        </tr>
+        </thead>
+        <tbody id="tbody-current"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 3번 영역: 과거 라운드 (홀수) -->
+  <section class="panel" id="panel-past-left">
+    <div class="panel-title-row">
+      <h2>📜 과거 라운드 (1,3,5…)</h2>
+      <div class="panel-subtitle">이전 라운드 기록</div>
+    </div>
+    <div class="past-scroll" id="past-left"></div>
+  </section>
+
+  <!-- 4번 영역: 과거 라운드 (짝수) -->
+  <section class="panel" id="panel-past-right">
+    <div class="panel-title-row">
+      <h2>📜 과거 라운드 (2,4,6…)</h2>
+      <div class="panel-subtitle">이전 라운드 기록</div>
+    </div>
+    <div class="past-scroll" id="past-right"></div>
+  </section>
 </div>
 
-<div class="right-box">
-    <h2>🏆 리더보드</h2>
-
-    <p class="hint-box">
-        최상위 유사도: <span id="best"></span><br>
-        20위 유사도: <span id="tw"></span><br>
-        1000위 유사도: <span id="th"></span>
-    </p>
-
-    <table>
+<!-- 최종 결과 오버레이 -->
+<div id="final-overlay">
+  <div id="final-card">
+    <h2>🏁 최종 결과</h2>
+    <p>경기가 종료되었습니다. 팀별 평균 유사도 순으로 정렬되어 있습니다.</p>
+    <div id="final-body">
+      <table id="final-table">
         <thead>
-            <tr>
-                <th>순위</th>
-                <th>팀</th>
-                <th>단어</th>
-                <th>유사도</th>
-                <th>유사도 순위</th>
-            </tr>
+        <tr>
+          <th>순위</th>
+          <th>팀</th>
+          <th>평균 유사도</th>
+        </tr>
         </thead>
-        <tbody id="tbody"></tbody>
-    </table>
+        <tbody id="final-tbody"></tbody>
+      </table>
+    </div>
+    <button id="final-close">닫기</button>
+  </div>
 </div>
 
 <script>
-let teamColors = {};           // 팀 이름 → 색상 매핑
-let seenEntries = new Set();   // 신규 단어 판단용
+  const teamColors = {};
+  let lastCorrectKey = null;
+  let pollId = null;
 
-// 팀 색상 결정 (직접 선택 가능)
-function getTeamColor(team) {
-    if (teamColors[team]) return teamColors[team];
-
-    // 팀이 색을 직접 선택한 경우 우선 적용
-    const selected = document.getElementById("teamColor").value;
-    if (selected) {
-        teamColors[team] = selected;
-        return selected;
-    }
-
-    // 없다면 랜덤 색
-    const newColor = "#" + Math.floor(Math.random()*16777215).toString(16);
-    teamColors[team] = newColor;
-    return newColor;
-}
-
-// Enter 입력으로 제출 가능하도록 설정
-document.getElementById("word").addEventListener("keypress", function(e) {
+  document.getElementById("word").addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
-        sendGuess();
+      sendGuess();
     }
-});
+  });
 
-async function sendGuess() {
+  document.getElementById("final-close").addEventListener("click", () => {
+    document.getElementById("final-overlay").style.display = "none";
+  });
+
+  function getTeamColor(team) {
+    if (!teamColors[team]) {
+      const colorInput = document.getElementById("teamColor");
+      if (colorInput && colorInput.value) {
+        teamColors[team] = colorInput.value;
+      } else {
+        teamColors[team] = "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0");
+      }
+    }
+    return teamColors[team];
+  }
+
+  async function sendGuess() {
     const team = document.getElementById("team").value.trim();
     const word = document.getElementById("word").value.trim();
     if (!team || !word) return;
 
-    // 팀 색 저장
-    const selectedColor = document.getElementById("teamColor").value;
-    if (selectedColor) teamColors[team] = selectedColor;
-
-    const res = await fetch("/guess", {
+    try {
+      const res = await fetch("/guess", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ team, word })
-    });
-    const data = await res.json();
+      });
+      const data = await res.json();
 
-    if (data.entry) {
-        const textRank = data.entry.is_answer ? "정답!" : data.entry.rank;
+      if (data.error) {
+        document.getElementById("latest").innerText = data.error;
+        return;
+      }
+
+      if (data.result === "duplicate") {
+        document.getElementById("latest").innerText = "이미 이 라운드에서 제출했습니다.";
+        return;
+      }
+
+      if (data.entry) {
+        const e = data.entry;
         document.getElementById("latest").innerText =
-            `[${data.entry.team}] ${data.entry.word} → 유사도 ${data.entry.similarity.toFixed(3)} / ${textRank}`;
+          `[${e.round}R][${e.team}] ${e.word} → 유사도 ${e.similarity?.toFixed(3) ?? "-"}` +
+          (e.rank ? ` / ${e.rank}위` : "");
+
+        if (data.result === "correct") {
+          lastCorrectKey = `${e.round}::${e.team}::${e.word}`;
+        }
+      }
+
+      document.getElementById("word").value = "";
+      await loadBoard();
+    } catch (err) {
+      console.error(err);
     }
+  }
 
-    loadBoard();
-}
+  async function loadBoard() {
+    try {
+      const res = await fetch("/leaderboard");
+      const data = await res.json();
 
-async function loadBoard() {
-    const res = await fetch("/leaderboard");
-    const data = await res.json();
+      if (data.finished) {
+        if (pollId) {
+          clearInterval(pollId);
+          pollId = null;
+        }
+        await loadFinalResult();
+        return;
+      }
 
-    document.getElementById("best").innerText = data.sim_top1?.toFixed(3) || "-";
-    document.getElementById("tw").innerText = data.sim_top20?.toFixed(3) || "-";
-    document.getElementById("th").innerText = data.sim_top1000?.toFixed(3) || "-";
+      const currentRound = data.current_round;
+      const maxRounds = data.max_rounds;
+      const rounds = data.rounds || {};
 
-    const tb = document.getElementById("tbody");
-    tb.innerHTML = "";
+      document.getElementById("round-label").innerText =
+        `현재 라운드: ${currentRound} / ${maxRounds}`;
+      document.getElementById("current-round-text").innerText = `${currentRound} 라운드`;
 
-    let rankNum = 1;
+      document.getElementById("sim-top1").innerText = data.sim_top1 ? data.sim_top1.toFixed(3) : "-";
+      document.getElementById("sim-top20").innerText = data.sim_top20 ? data.sim_top20.toFixed(3) : "-";
+      document.getElementById("sim-top1000").innerText = data.sim_top1000 ? data.sim_top1000.toFixed(3) : "-";
 
-    for (let row of data.submissions) {
-        const key = row.team + "_" + row.word;
+      document.getElementById("answer-label").innerText =
+        data.answer ? `현재 정답 단어는 어드민에만 표시됩니다.` : "정답이 아직 설정되지 않았습니다.";
 
+      renderCurrentRound(rounds[String(currentRound)] || [], currentRound);
+      renderPastRounds(rounds, currentRound);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function renderCurrentRound(rows, roundNo) {
+    const tbody = document.getElementById("tbody-current");
+    tbody.innerHTML = "";
+
+    rows.forEach((row, idx) => {
+      const tr = document.createElement("tr");
+
+      const tdRank = document.createElement("td");
+      tdRank.textContent = idx + 1;
+      tr.appendChild(tdRank);
+
+      const tdTeam = document.createElement("td");
+      tdTeam.textContent = row.team;
+      tdTeam.className = "row-team";
+      tdTeam.style.color = getTeamColor(row.team); // 팀 이름에 색 적용
+      tr.appendChild(tdTeam);
+
+      const tdWord = document.createElement("td");
+      tdWord.textContent = row.word;
+      tr.appendChild(tdWord);
+
+      const tdSim = document.createElement("td");
+      if (typeof row.similarity === "number") {
+        tdSim.textContent = row.similarity.toFixed(3);
+        tdSim.className = row.similarity >= 0.6 ? "sim-good" : "sim-bad";
+      } else {
+        tdSim.textContent = "-";
+      }
+      tr.appendChild(tdSim);
+
+      const tdRankInfo = document.createElement("td");
+      const pill = document.createElement("span");
+      pill.className = "rank-pill";
+      pill.textContent = formatRank(row);
+      if (row.is_answer) pill.classList.add("rank-answer");
+      tdRankInfo.appendChild(pill);
+      tr.appendChild(tdRankInfo);
+
+      const tdBar = document.createElement("td");
+      const box = document.createElement("div");
+      box.className = "bar-box";
+      const fill = document.createElement("div");
+      fill.className = "bar-fill";
+
+      let pct = 0;
+      if (row.is_answer) {
+        pct = 100;
+      } else if (row.rank && row.rank <= 1000) {
+        pct = Math.max(5, (1000 - row.rank + 1) / 1000 * 100);
+      } else {
+        pct = 0;
+      }
+      fill.style.width = pct + "%";
+
+      box.appendChild(fill);
+      tdBar.appendChild(box);
+      tr.appendChild(tdBar);
+
+      const key = `${roundNo}::${row.team}::${row.word}`;
+      if (lastCorrectKey && key === lastCorrectKey) {
+        tr.style.outline = "2px solid #facc15";
+        tr.style.boxShadow = "0 0 10px rgba(250, 204, 21, 0.8)";
+        setTimeout(() => {
+          tr.style.outline = "none";
+          tr.style.boxShadow = "none";
+          lastCorrectKey = null;
+        }, 1200);
+      }
+
+      tbody.appendChild(tr);
+    });
+
+    if (rows.length === 0) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 6;
+      td.className = "no-data";
+      td.textContent = "아직 제출된 단어가 없습니다.";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    }
+  }
+
+  function formatRank(row) {
+    if (row.is_answer) return "정답!";
+    if (!row.rank || row.rank > 1000) return "1000위 이상";
+    return `${row.rank}위`;
+  }
+
+  function renderPastRounds(rounds, currentRound) {
+    const left = document.getElementById("past-left");
+    const right = document.getElementById("past-right");
+    left.innerHTML = "";
+    right.innerHTML = "";
+
+    let hasLeft = false;
+    let hasRight = false;
+
+    for (let r = 1; r < currentRound; r++) {
+      const list = rounds[String(r)] || [];
+      if (!list.length) continue;
+
+      const target = (r % 2 === 1) ? left : right;
+      if (r % 2 === 1) hasLeft = true; else hasRight = true;
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "past-table-wrapper";
+
+      const title = document.createElement("div");
+      title.style.display = "flex";
+      title.style.justifyContent = "space-between";
+      title.style.alignItems = "baseline";
+
+      const h = document.createElement("h3");
+      h.textContent = `${r} 라운드`;
+      title.appendChild(h);
+
+      const sub = document.createElement("span");
+      sub.style.fontSize = "11px";
+      sub.style.color = "#9ca3af";
+      sub.textContent = `${list.length}개 제출`;
+      title.appendChild(sub);
+
+      wrapper.appendChild(title);
+
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      thead.innerHTML = `
+        <tr>
+          <th>순위</th>
+          <th>팀</th>
+          <th>단어</th>
+          <th>유사도</th>
+          <th>유사도 순위</th>
+        </tr>`;
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      list.forEach((row, idx) => {
         const tr = document.createElement("tr");
 
-        if (!seenEntries.has(key)) {
-            tr.classList.add("new-row");
-            seenEntries.add(key);
-        }
+        const tdRank = document.createElement("td");
+        tdRank.textContent = idx + 1;
+        tr.appendChild(tdRank);
 
-        // 정답 표시
-        let rankText = row.rank;
-        if (row.is_answer) {
-            rankText = "정답!";
-        } else if (row.rank === "???" || row.rank > 1000) {
-            rankText = "1000위 이상";
-        }
+        const tdTeam = document.createElement("td");
+        tdTeam.textContent = row.team;
+        tdTeam.style.color = getTeamColor(row.team);
+        tr.appendChild(tdTeam);
 
-        // 순위 막대
-        let barWidth = 0;
-        if (typeof row.rank === "number" && row.rank <= 1000 && !row.is_answer) {
-            barWidth = ((1000 - row.rank) / 1000) * 100;
-        } else if (row.is_answer) {
-            barWidth = 100;
-        }
+        const tdWord = document.createElement("td");
+        tdWord.textContent = row.word;
+        tr.appendChild(tdWord);
 
-        tr.innerHTML = `
-            <td>${rankNum++}</td>
-            <td>${row.team}</td>
-            <td>${row.word}</td>
-            <td>${row.similarity.toFixed(3)}</td>
-            <td>
-                ${rankText}
-                <div class="rank-bar-box">
-                    <div class="rank-bar-fill"
-                        style="width:${barWidth}%; background:${getTeamColor(row.team)};">
-                    </div>
-                </div>
-            </td>
-        `;
+        const tdSim = document.createElement("td");
+        tdSim.textContent =
+          typeof row.similarity === "number" ? row.similarity.toFixed(3) : "-";
+        tr.appendChild(tdSim);
 
-        tb.appendChild(tr);
+        const tdRankInfo = document.createElement("td");
+        tdRankInfo.textContent = formatRank(row);
+        tr.appendChild(tdRankInfo);
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      wrapper.appendChild(table);
+      target.appendChild(wrapper);
     }
-}
 
-loadBoard();
-setInterval(loadBoard, 1500);
+    if (!hasLeft) {
+      const n = document.createElement("div");
+      n.className = "no-data";
+      n.textContent = "표시할 과거 라운드가 없습니다.";
+      left.appendChild(n);
+    }
+
+    if (!hasRight) {
+      const n = document.createElement("div");
+      n.className = "no-data";
+      n.textContent = "표시할 과거 라운드가 없습니다.";
+      right.appendChild(n);
+    }
+  }
+
+  async function loadFinalResult() {
+    try {
+      const res = await fetch("/final_result");
+      const data = await res.json();
+      const tbody = document.getElementById("final-tbody");
+      tbody.innerHTML = "";
+
+      (data.result || []).forEach((row, idx) => {
+        const tr = document.createElement("tr");
+
+        const tdRank = document.createElement("td");
+        tdRank.textContent = idx + 1;
+        tr.appendChild(tdRank);
+
+        const tdTeam = document.createElement("td");
+        tdTeam.textContent = row.team;
+        tdTeam.style.color = getTeamColor(row.team);
+        tr.appendChild(tdTeam);
+
+        const tdAvg = document.createElement("td");
+        tdAvg.textContent = row.avg.toFixed(3);
+        tr.appendChild(tdAvg);
+
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById("final-overlay").style.display = "flex";
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // 초기 실행
+  loadBoard();
+  pollId = setInterval(loadBoard, 1500);
 </script>
-
 </body>
 </html>
