@@ -52,11 +52,12 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 async def load_embeddings() -> None:
     global embedding_dict
 
-    emb_path = os.path.join(DATA_DIR, "embedding_dictionary.json")
+    emb_path = os.path.join(DATA_DIR, "embedding_dictionary_e5.json")
     if not os.path.exists(emb_path):
         raise FileNotFoundError(f"{emb_path} not found")
 
     with open(emb_path, "rb") as f:
+        print(f"[INFO] Loading embeddings from {emb_path}...")
         embedding_dict = orjson.loads(f.read())
 
     print(f"[INFO] Loaded embeddings ({len(embedding_dict)} words).")
