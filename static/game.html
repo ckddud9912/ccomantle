@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>꼬맨틀 게임</title>
+  <title>시그널 게임</title>
   <style>
     * {
       box-sizing: border-box;
@@ -309,7 +309,7 @@
 <div class="grid-2x2">
   <!-- 1번 영역: 입력 -->
   <section class="panel" id="panel-input">
-    <h2>🎮 꼬맨틀 게임</h2>
+    <h2>🎮 시그널</h2>
     <small>정답은 하나, 6라운드 안에 최대한 가까이 다가가 보세요.</small>
 
     <div class="round-badge" id="round-badge">
@@ -407,7 +407,6 @@
 </div>
 
 <script>
-  const teamColors = {};
   let lastCorrectKey = null;
   let pollId = null;
 
@@ -421,28 +420,18 @@
     document.getElementById("final-overlay").style.display = "none";
   });
 
-  function getTeamColor(team) {
-    if (!teamColors[team]) {
-      const colorInput = document.getElementById("teamColor");
-      if (colorInput && colorInput.value) {
-        teamColors[team] = colorInput.value;
-      } else {
-        teamColors[team] = "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0");
-      }
-    }
-    return teamColors[team];
-  }
-
   async function sendGuess() {
     const team = document.getElementById("team").value.trim();
     const word = document.getElementById("word").value.trim();
+    const team_color = document.getElementById("teamColor").value;
+
     if (!team || !word) return;
 
     try {
       const res = await fetch("/guess", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ team, word })
+        body: JSON.stringify({ team, word, team_color })
       });
       const data = await res.json();
 
@@ -524,7 +513,7 @@
       const tdTeam = document.createElement("td");
       tdTeam.textContent = row.team;
       tdTeam.className = "row-team";
-      tdTeam.style.color = getTeamColor(row.team); // 팀 이름에 색 적용
+      tdTeam.style.color = row.team_color || "#3b82f6";
       tr.appendChild(tdTeam);
 
       const tdWord = document.createElement("td");
@@ -657,7 +646,7 @@
 
         const tdTeam = document.createElement("td");
         tdTeam.textContent = row.team;
-        tdTeam.style.color = getTeamColor(row.team);
+        tdTeam.style.color = row.team_color || "#3b82f6";
         tr.appendChild(tdTeam);
 
         const tdWord = document.createElement("td");
@@ -712,7 +701,7 @@
 
         const tdTeam = document.createElement("td");
         tdTeam.textContent = row.team;
-        tdTeam.style.color = getTeamColor(row.team);
+        tdTeam.style.color = row.team_color || "#3b82f6";
         tr.appendChild(tdTeam);
 
         const tdAvg = document.createElement("td");

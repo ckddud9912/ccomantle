@@ -1,4 +1,4 @@
-# === app.py - 완성본 (유사도 정규화 포함) ===
+# === app.py - 시그널 버전 (팀 색상 서버 고정 저장) ===
 import os
 import math
 from typing import List, Dict, Optional
@@ -34,6 +34,9 @@ sim_top1000: Optional[float] = None
 # 유사도 스케일링 파라미터
 SIM_ALPHA: float = 1.0          # s' = s ** SIM_ALPHA
 TARGET_TOP1000: float = 0.63    # 1000위 목표 값
+
+# 팀 색상: 게임 전체에서 고정
+team_colors: Dict[str, str] = {}
 
 
 # ==================================================
@@ -108,10 +111,10 @@ def compute_answer_ranking() -> None:
     sims_raw.sort(key=lambda x: x[1], reverse=True)
     word_to_rank = {w: idx + 1 for idx, (w, _) in enumerate(sims_raw)}
 
-    # raw 기준 상위 값들
-    sim_top1_raw = sims_raw[0][1]
-    sim_top20_raw = sims_raw[min(19, len(sims_raw) - 1)][1]
-    sim_top1000_raw = sims_raw[min(999, len(sims_raw) - 1)][1]
+    # raw 기준 상위 값들 (안전하게 인덱스)
+    sim_top1_raw = sims_raw[0][1] if len(sims_raw) > 0 else 0.0
+    sim_top20_raw = sims_raw[min(19, len(sims_raw) - 1)][1] if len(sims_raw) > 0 else 0.0
+    sim_top1000_raw = sims_raw[min(999, len(sims_raw) - 1)][1] if len(sims_raw) > 0 else 0.0
 
     # SIM_ALPHA 계산: (sim_top1000_raw ** alpha = TARGET_TOP1000)
     if 0 < sim_top1000_raw < 1:
@@ -119,8 +122,7 @@ def compute_answer_ranking() -> None:
     else:
         SIM_ALPHA = 1.0
 
-    print(f"[INFO] sim_top1000_raw={sim_top1000_raw:.4f}, "
-          f"SIM_ALPHA={SIM_ALPHA:.4f}")
+    print(f"[INFO] sim_top1000_raw={sim_top1000_raw:.4f}, SIM_ALPHA={SIM_ALPHA:.4f}")
 
     # 스케일링 된 값으로 최종 지표 셋팅
     sim_top1 = apply_sim_scaling(sim_top1_raw)
@@ -138,6 +140,7 @@ class SetAnswerRequest(BaseModel):
 class GuessRequest(BaseModel):
     team: str
     word: str
+    team_color: Optional[str] = None
 
 
 class RoundRequest(BaseModel):
@@ -149,7 +152,7 @@ class RoundRequest(BaseModel):
 # ==================================================
 @app.post("/set_answer")
 async def set_answer(req: SetAnswerRequest):
-    global answer_word, answer_vector, rounds, current_round, game_finished
+    global answer_word, answer_vector, rounds, current_round, game_finished, team_colors
 
     if req.answer not in embedding_dict:
         return JSONResponse({"error": "사전에 없는 단어입니다."})
@@ -160,6 +163,7 @@ async def set_answer(req: SetAnswerRequest):
     rounds = {i: [] for i in range(1, MAX_ROUNDS + 1)}
     current_round = 1
     game_finished = False
+    team_colors = {}  # 새 게임 시작 시 팀 색상 초기화
 
     compute_answer_ranking()
     return {"status": "ok", "answer": answer_word}
@@ -178,11 +182,11 @@ async def set_round(req: RoundRequest):
 
 
 # ==================================================
-# API: 추측 제출
+# API: 추측 제출 (팀 색상 포함)
 # ==================================================
 @app.post("/guess")
 async def guess(req: GuessRequest):
-    global rounds
+    global rounds, team_colors
 
     if game_finished:
         return JSONResponse({"error": "경기가 종료되었습니다."})
@@ -192,19 +196,32 @@ async def guess(req: GuessRequest):
 
     team = req.team.strip()
     word = req.word.strip()
+    color = (req.team_color or "#3b82f6").strip()
 
+    # 팀 색상: 최초 제출 시에만 확정, 이후에는 유지
+    if team not in team_colors:
+        team_colors[team] = color
+
+    # 라운드 중복 제출 방지
     for s in rounds[current_round]:
         if s["team"] == team:
             return {"result": "duplicate"}
 
+    # 정답 처리
     if word == answer_word:
         entry = {
-            "round": current_round, "team": team, "word": word,
-            "is_answer": True, "rank": 1, "similarity": 1.0,
+            "round": current_round,
+            "team": team,
+            "team_color": team_colors[team],
+            "word": word,
+            "is_answer": True,
+            "rank": 1,
+            "similarity": 1.0,
         }
         rounds[current_round].append(entry)
         return {"result": "correct", "entry": entry}
 
+    # 사전에 없는 단어
     if word not in embedding_dict:
         return JSONResponse({"error": "사전에 없는 단어입니다."})
 
@@ -216,8 +233,13 @@ async def guess(req: GuessRequest):
     rank = word_to_rank.get(word)
 
     entry = {
-        "round": current_round, "team": team, "word": word,
-        "is_answer": False, "rank": rank, "similarity": similarity,
+        "round": current_round,
+        "team": team,
+        "team_color": team_colors[team],
+        "word": word,
+        "is_answer": False,
+        "rank": rank,
+        "similarity": similarity,
     }
     rounds[current_round].append(entry)
 
@@ -251,6 +273,9 @@ async def leaderboard():
 # ==================================================
 @app.get("/top1000")
 async def top1000():
+    if answer_word is None or answer_vector is None:
+        return JSONResponse({"error": "정답이 아직 설정되지 않았습니다."})
+
     sims = []
     for w, vec_list in embedding_dict.items():
         v = np.array(vec_list, dtype=float)
@@ -285,7 +310,7 @@ async def end_game():
 # ==================================================
 @app.get("/final_result")
 async def final_result():
-    team_scores = {}
+    team_scores: Dict[str, List[float]] = {}
 
     for r in rounds.values():
         for s in r:
@@ -297,7 +322,11 @@ async def final_result():
     final = []
     for t, sims in team_scores.items():
         avg = sum(sims) / len(sims)
-        final.append({"team": t, "avg": round(avg, 4)})
+        final.append({
+            "team": t,
+            "team_color": team_colors.get(t),
+            "avg": round(avg, 4)
+        })
 
     final.sort(key=lambda x: x["avg"], reverse=True)
     return {"result": final}
