@@ -1,5 +1,42 @@
 # Refactoring Changelog
 
+## [5번] Dockerfile 수정 및 requirements 분리 (2026-05-08)
+
+### 문제
+
+**Dockerfile**
+- `CMD ["python", "app.py"]` — `app.py`는 `src/` 안에 있어서 컨테이너 시작 시 `No such file or directory` 오류 발생
+- `COPY . .` 로 `.git/`, `docs/`, 전처리 스크립트 등 서버에 불필요한 파일까지 모두 이미지에 포함 → 이미지 사이즈 불필요하게 증가
+- `.dockerignore` 없음
+
+**requirements.txt**
+- `orjson` 누락 → `src/core/embeddings.py`에서 `import orjson` 실패, 서버 시작 시 즉시 `ImportError`
+- `sentence-transformers`, `torch`, `jinja2`, `python-multipart` — 서버 런타임에서 실제로 사용하지 않는 패키지. 이미지에서 torch 혼자 수백 MB 차지
+
+### 해결
+
+**Dockerfile 변경**
+- `CMD ["python", "app.py"]` → `CMD ["python", "src/app.py"]`
+- `COPY . .` → 필요한 디렉터리(`src/`, `static/`, `data/`)만 개별 COPY
+- requirements 먼저 COPY·install 후 소스 COPY (레이어 캐시 활용 — 소스만 바뀌면 pip install 스킵)
+
+**requirements.txt** (런타임 전용, 4개)
+```
+fastapi / uvicorn / numpy / orjson
+```
+
+**requirements-dev.txt** (신규, 전처리 전용)
+```
+torch / transformers / tqdm / scikit-learn
+```
+
+**.dockerignore** (신규)
+```
+.git/, __pycache__/, docs/, requirements-dev.txt, 전처리 스크립트 3개
+```
+
+---
+
 ## [3번] 사용하지 않는 전처리 스크립트 정리 (2026-05-08)
 
 ### 문제
