@@ -82,14 +82,17 @@ FASTTEXT_VEC_PATH=/path/to/cc.ko.300.vec python src/run_embed.py
 
 ---
 
-## 사용하지 않는 파일 (정리 대상)
+## 삭제된 파일 (3번 정리)
+아래 파일들은 현행 파이프라인에서 불필요하여 제거됨. 이력은 git log 참고.
+
 | 파일 | 이유 |
 |---|---|
-| `src/E5_embedding.py` | ver2로 대체됨 |
-| `src/fasttext_extract_50k_words.py` | ver2로 대체됨 |
-| `src/make_words_from_fasttext.py` | `make_words_from_vec.py`로 대체됨 |
-| `src/fasttext_loader.py` | import하는 곳 없음, ko-sroberta 로더 (미사용) |
-| `src/embedding_precompute.py` | E5 ver2로 대체됨 (ko-sroberta 기반) |
+| `src/E5_embedding.py` | `E5_embedding_ver2.py`(스케일링 추가)로 대체 |
+| `src/fasttext_extract_50k_words.py` | `make_words_from_vec.py`로 대체 |
+| `src/fasttext_extract_50k_words_ver2.py` | 임베딩 방식이 FastText → E5로 전환됨 |
+| `src/make_words_from_fasttext.py` | `make_words_from_vec.py`(권장)로 대체 |
+| `src/fasttext_loader.py` | 미사용 (ko-sroberta 로더 잔재) |
+| `src/embedding_precompute.py` | `E5_embedding_ver2.py`로 대체 (ko-sroberta 기반) |
 
 ## 필요 라이브러리 (전처리 전용)
 ```

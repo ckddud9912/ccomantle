@@ -1,5 +1,30 @@
 # Refactoring Changelog
 
+## [3번] 사용하지 않는 전처리 스크립트 정리 (2026-05-08)
+
+### 문제
+ver1/ver2 중복 파일 6개가 `src/`에 혼재. 현재 파이프라인에서 사용하지 않거나,
+더 나은 버전으로 완전히 대체된 상태.
+
+### 삭제된 파일
+| 파일 | 대체 |
+|---|---|
+| `src/E5_embedding.py` | `E5_embedding_ver2.py` (스케일링 추가) |
+| `src/fasttext_extract_50k_words.py` | `make_words_from_vec.py` (더 정교한 필터) |
+| `src/fasttext_extract_50k_words_ver2.py` | 임베딩 방식 자체가 FastText → E5로 교체 |
+| `src/make_words_from_fasttext.py` | `make_words_from_vec.py` (권장) |
+| `src/fasttext_loader.py` | 미사용 (ko-sroberta 로더 잔재) |
+| `src/embedding_precompute.py` | `E5_embedding_ver2.py` (ko-sroberta → E5) |
+
+### 현행 전처리 파이프라인 (정리 후)
+```
+make_words_from_vec.py      → words_50000.json
+E5_embedding_ver2.py        → embedding_dictionary_e5_scaled.json
+run_embed.py                → 위 두 스크립트 오케스트레이션
+```
+
+---
+
 ## [2번] 하드코딩 경로 환경변수화 (2026-05-08)
 
 ### 문제
