@@ -1,70 +1,59 @@
-import subprocess
+import argparse
 import json
 import os
+import subprocess
+import sys
 
-# ▶ FastText 실행 파일 (네 PC 경로)
-FASTTEXT_EXE = r"C:\Users\창영\Desktop\fasttext\fasttext.exe"
-
-# ▶ 한국어 FastText 모델 경로 (.bin 파일)
-MODEL_PATH = r"C:\Users\창영\Desktop\fasttext\cc.ko.300.bin"
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # src 폴더 기준
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "..", "data")
-
-# ▶ 출력 파일
-OUTPUT_FILE = DATA_PATH + "/words_50000.json"
+OUTPUT_FILE = os.path.join(DATA_PATH, "words_50000.json")
 
 
-def extract_words():
-    print("🔵 FastText에서 단어 목록 추출 중...")
+def _resolve(cli_val, env_key, label):
+    path = cli_val or os.getenv(env_key, "")
+    if not path:
+        sys.exit(f"[ERROR] {label} 경로 필요: 해당 옵션 또는 환경변수 {env_key}")
+    return path
 
-    # -------------------------------
-    # 경로 유효성 체크
-    # -------------------------------
-    if not os.path.exists(FASTTEXT_EXE):
-        print(f"❌ fasttext.exe 파일을 찾을 수 없음:\n  {FASTTEXT_EXE}")
-        return
 
-    if not os.path.exists(MODEL_PATH):
-        print(f"❌ FastText 모델 파일 없음:\n  {MODEL_PATH}")
-        return
+def parse_args():
+    p = argparse.ArgumentParser(description="fasttext dump vocab → words_50000.json")
+    p.add_argument("--exe", default=None, help="fasttext 실행파일 경로 (또는 FASTTEXT_EXE_PATH)")
+    p.add_argument("--model", default=None, help="FastText .bin 경로 (또는 FASTTEXT_MODEL_PATH)")
+    p.add_argument("--output", default=OUTPUT_FILE)
+    return p.parse_args()
 
-    # -------------------------------
-    # FastText 단어 목록 추출
-    # -------------------------------
-    cmd = [FASTTEXT_EXE, "dump", "vocab", MODEL_PATH]
 
-    print("📌 실행:", " ".join(cmd))
+def extract_words(fasttext_exe, model_path, output_file):
+    if not os.path.exists(fasttext_exe):
+        sys.exit(f"[ERROR] fasttext 실행파일 없음: {fasttext_exe}")
+    if not os.path.exists(model_path):
+        sys.exit(f"[ERROR] FastText 모델 없음: {model_path}")
+
+    cmd = [fasttext_exe, "dump", "vocab", model_path]
+    print("실행:", " ".join(cmd))
 
     result = subprocess.run(cmd, capture_output=True, text=True)
-
     if result.returncode != 0:
-        print("❌ FastText 실행 오류:")
-        print(result.stderr)
-        return
+        sys.exit(f"[ERROR] FastText 실행 오류:\n{result.stderr}")
 
-    lines = result.stdout.split("\n")
+    words = [line.strip().split()[0] for line in result.stdout.split("\n") if line.strip()]
+    print(f"전체 단어 수: {len(words)}")
 
-    words = []
-    for line in lines:
-        parts = line.strip().split()
-        if parts:
-            words.append(parts[0])
-
-    print(f"📌 전체 단어 수: {len(words)}")
-
-    # 상위 50,000개만 사용
     top_50k = words[:50000]
 
-    # -------------------------------
-    # 저장
-    # -------------------------------
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(top_50k, f, ensure_ascii=False, indent=2)
 
-    print(f"🎉 50,000 단어 저장 완료 → {OUTPUT_FILE}")
-    print(f"총 {len(top_50k)} 개 단어가 저장되었습니다.")
+    print(f"저장 완료 → {output_file} ({len(top_50k)}개)")
+
+
+def main():
+    args = parse_args()
+    fasttext_exe = _resolve(args.exe, "FASTTEXT_EXE_PATH", "fasttext 실행파일")
+    model_path = _resolve(args.model, "FASTTEXT_MODEL_PATH", "FastText .bin 모델")
+    extract_words(fasttext_exe, model_path, args.output)
 
 
 if __name__ == "__main__":
-    extract_words()
+    main()
