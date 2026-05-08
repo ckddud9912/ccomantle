@@ -1,0 +1,16 @@
+:root {
+  --bg:           #020617;
+  --bg-surface:   #0f172a;
+  --border:       #1e293b;
+  --border-muted: #111827;
+  --border-input: #334155;
+  --text:         #e5e7eb;
+  --text-muted:   #9ca3af;
+  --accent:       #fbbf24;
+  --btn-bg:       #facc15;
+  --btn-text:     #111827;
+  --green:        #22c55e;
+  --orange:       #f97316;
+  --blue:         #3b82f6;
+  --red:          #ef4444;
+}

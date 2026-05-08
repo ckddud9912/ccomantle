@@ -1,5 +1,48 @@
 # Refactoring Changelog
 
+## [4번] 정적 파일 CSS/JS 분리 및 CSS 변수화 (2026-05-08)
+
+### 문제
+`game.html`(725줄), `admin.html`(357줄) 안에 CSS와 JS가 인라인으로 섞여 있음.
+- CSS만 game.html 300줄, admin.html 167줄 → 하나의 파일에서 스타일·로직·구조를 동시에 수정해야 하는 구조
+- 두 파일에 동일한 색상값(`#020617`, `#fbbf24` 등)이 하드코딩으로 중복 → 색상 하나 바꾸면 두 파일을 모두 수작업으로 변경해야 함
+- 게임 로직 JS 315줄이 HTML 안에 묻혀 있어 가독성과 유지보수성 저하
+
+### 해결
+
+**신규 파일**
+```
+static/
+  css/
+    variables.css   # 공유 CSS 커스텀 프로퍼티 (색상 14개, 폰트)
+    game.css        # game.html 전용 스타일 (300줄)
+    admin.css       # admin.html 전용 스타일 (167줄)
+  js/
+    game.js         # game.html 전용 스크립트 (폴링·렌더링·추측 제출)
+    admin.js        # admin.html 전용 스크립트 (정답설정·라운드·top1000)
+```
+
+**변경된 파일**
+| 파일 | 변경 전 | 변경 후 |
+|---|---|---|
+| `static/game.html` | 725줄 (CSS+JS 포함) | 97줄 (HTML 골격 + link/script 태그만) |
+| `static/admin.html` | 357줄 (CSS+JS 포함) | 68줄 (HTML 골격 + link/script 태그만) |
+
+**CSS 변수 목록 (variables.css)**
+```
+--bg, --bg-surface, --border, --border-muted, --border-input,
+--text, --text-muted, --accent, --btn-bg, --btn-text,
+--green, --orange, --blue, --red
+```
+game.css·admin.css 양쪽에서 하드코딩 색상을 모두 변수로 교체.
+이제 색상 변경은 `variables.css` 한 파일만 수정하면 됨.
+
+### 동작 변경 없음
+HTML 구조·CSS 클래스명·JS 함수명 모두 동일 유지.
+`/static/css/`, `/static/js/` 경로는 FastAPI의 `StaticFiles` 마운트(`/static`)로 서빙됨.
+
+---
+
 ## [3번] 사용하지 않는 전처리 스크립트 정리 (2026-05-08)
 
 ### 문제
