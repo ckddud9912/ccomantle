@@ -301,9 +301,54 @@ th {
   color: var(--text);
 }
 
-#final-table th,
-#final-table td {
+.final-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.final-table th,
+.final-table td {
   padding: 7px 6px;
+}
+
+/* 두 섹션 레이아웃 */
+.final-section {
+  margin-bottom: 18px;
+}
+
+.final-section:last-child {
+  margin-bottom: 0;
+}
+
+.final-section-title {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.final-section-desc {
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* 단어 랭킹 섹션 — 길어질 수 있어 자체 스크롤 */
+.final-section-scroll {
+  max-height: 36vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+}
+
+/* 1위 강조 (단어 랭킹과 팀 순위 양쪽 첫 행) */
+.final-table tbody tr.row-top1 {
+  background: rgba(251, 191, 36, 0.10);
+}
+
+.final-table tbody tr.row-top1 td:first-child {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 /* 정답 공개 라인 (최종 결과 카드 상단) */
@@ -445,38 +490,4 @@ th {
 
 .rp-dot.rp-done   { background: var(--green); border-color: var(--green); }
 .rp-dot.rp-active { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.18); }
-
-/* ============================================
- * 최종 결과 — 라운드별 단어 inline 표시
- * ============================================ */
-.final-words {
-  font-size: 12px;
-  line-height: 1.7;
-  text-align: left;
-  white-space: normal;
-}
-
-.final-words .fw-item {
-  display: inline-block;
-  margin: 2px 6px 2px 0;
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-}
-
-.final-words .fw-round {
-  color: var(--text-muted);
-  margin-right: 3px;
-  font-size: 10px;
-}
-
-.final-words .fw-word {
-  font-weight: 600;
-}
-
-.final-words .fw-sim {
-  color: var(--text-muted);
-  margin-left: 4px;
-}
 

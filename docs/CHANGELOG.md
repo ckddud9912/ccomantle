@@ -1,5 +1,37 @@
 # Refactoring Changelog
 
+## [10번] 최종 결과 화면 — 단어 랭킹 + 팀 평균 두 섹션으로 분리 (2026-05-09)
+
+### 배경
+9번에서 최종 결과에 팀별 라운드별 단어를 칩 형태로 inline 표시했으나,
+모든 라운드 단어가 한 줄에 다 나와서 가독성 떨어진다는 피드백.
+"가장 점수 높은 단어"가 가장 궁금한 정보인데 묻혀버림.
+
+### 변경 내용
+
+**최종 결과 팝업을 두 섹션으로 분리**
+- **🥇 단어 랭킹**: 모든 제출 단어를 점수순. 1위는 accent 색 강조 + 배경 하이라이트.
+  자체 스크롤 (max-height: 36vh).
+- **🏅 팀별 평균**: 각 팀의 평균 + 베스트 단어 한 개만 (라운드, 점수 함께).
+  1위 팀 강조.
+
+이로써 사용자는:
+1. 최상단에서 "어떤 단어가 가장 가까웠는지" 즉시 확인
+2. 그 아래에서 팀별 평균 + 각 팀이 낸 베스트 단어만 간결하게 확인
+3. 모든 라운드 단어를 줄줄이 보지 않아도 됨
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `static/game.html` | final-card 안 두 섹션 신규 (final-words-tbody, final-teams-tbody) |
+| `static/css/game.css` | `.final-section`, `.final-section-scroll`, `.row-top1` 스타일 추가. 옛 `.final-words` / `.fw-*` 제거 |
+| `static/js/game.js` | `renderFinalWordRanking`, `renderFinalTeamRanking` 분리. `appendCell` / `appendTeamCell` 헬퍼 |
+
+### API 변경 없음
+서버 응답은 이미 9번에서 추가한 `submissions` 배열로 충분. 클라이언트 렌더링만 변경.
+
+---
+
 ## [9번] 게임 레이아웃 3분할 + 최종 결과에 라운드별 단어 표시 (2026-05-09)
 
 ### 배경
