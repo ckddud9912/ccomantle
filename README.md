@@ -65,13 +65,14 @@ docker compose up
 # Python 3.10+ 권장
 pip install -r requirements.txt
 
-# 임베딩 파일 처리는 옵션 A와 동일 (data/ 에 두거나 환경변수 설정)
-export EMBEDDING_HF_REPO=leon4study/ccomantle-embeddings   # 선택
-
+# .env 파일은 자동 로드됨 (옵션 A와 동일하게 cp .env.example .env)
 python src/app.py
 ```
 
 http://localhost:7860 으로 접속.
+
+> 도커/비도커 어느 쪽이든 `.env` 파일이 있으면 자동으로 환경변수로 읽힙니다.
+> 이미 export 된 환경변수가 있으면 그게 우선됨 (.env가 덮어쓰지 않음).
 
 ---
 

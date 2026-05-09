@@ -16,6 +16,15 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 STATIC_DIR = os.path.join(ROOT_DIR, "static")
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 
+# .env 자동 로드 — 도커 컴포즈는 자체적으로 .env를 환경변수로 주입하지만,
+# 직접 `python src/app.py` 로 실행할 때는 안 읽힘. python-dotenv 로 양쪽 통일.
+# 이미 export 되어 있는 환경변수가 있으면 .env 값으로 덮어쓰지 않음 (override=False 기본).
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(ROOT_DIR, ".env"))
+except ImportError:
+    pass
+
 # 빈 문자열도 "미설정"으로 간주. .env 파일에 EMBEDDING_FILE= 라고만
 # 적혀 있으면 os.environ.get(..., default)가 빈 문자열을 반환하기 때문에
 # `or` 로 fallback 처리해야 한다.

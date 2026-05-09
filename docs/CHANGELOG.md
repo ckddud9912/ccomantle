@@ -1,5 +1,32 @@
 # Refactoring Changelog
 
+## [11번] .env 자동 로드 — 도커/비도커 풀 자동화 (2026-05-09)
+
+### 배경
+도커 컴포즈는 `.env`를 자동으로 환경변수로 주입하지만,
+직접 `python src/app.py`로 실행하면 `.env`가 무시됨 → `EMBEDDING_HF_REPO` 같은 값을 매번 `export` 해야 했음.
+"풀 자동화" 목표에 어긋나는 마지막 마찰점.
+
+### 해결
+- `requirements.txt`에 `python-dotenv` 추가
+- `src/app.py` 상단에 `load_dotenv(.env)` 호출
+- 이미 export된 환경변수가 있으면 그게 우선 (override=False, dotenv 기본 동작)
+
+### 효과
+| 실행 방식 | 변경 전 | 변경 후 |
+|---|---|---|
+| `docker compose up` | `.env` 자동 적용 ✓ | `.env` 자동 적용 ✓ |
+| `python src/app.py` | `export ...` 필수 ✗ | `.env` 자동 적용 ✓ |
+
+이제 두 경로 모두 `cp .env.example .env` 한 번만 하면 동일하게 동작.
+
+### 변경된 파일
+- `requirements.txt` : `python-dotenv` 추가
+- `src/app.py` : 상단에 `load_dotenv` 호출 (try/except로 미설치 환경에서도 죽지 않게)
+- `README.md` : 옵션 B 섹션의 export 안내 → "자동 로드됨" 으로 단순화
+
+---
+
 ## [10번] 최종 결과 화면 — 단어 랭킹 + 팀 평균 두 섹션으로 분리 (2026-05-09)
 
 ### 배경

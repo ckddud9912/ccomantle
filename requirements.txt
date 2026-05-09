@@ -3,3 +3,4 @@ uvicorn
 numpy
 orjson
 huggingface_hub
+python-dotenv
