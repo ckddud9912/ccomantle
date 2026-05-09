@@ -1,5 +1,53 @@
 # Refactoring Changelog
 
+## [7번] 1줄 실행 인프라 — docker compose + HF Hub 자동 다운로드 (2026-05-09)
+
+### 배경
+"git clone → docker compose up" 한 줄로 즉시 실행 가능해야 한다는 목표.
+가장 큰 차단요소였던 임베딩 파일 배포(수백 MB JSON, git에 못 올림) 해결.
+
+### 신규 파일
+- `docker-compose.yml` — 단일 서비스, 포트 7860, data 볼륨 마운트, 헬스체크 포함
+- `.env.example` — 환경변수 템플릿, 사용자가 cp 후 값 채우는 방식
+
+### 변경된 파일
+- `src/app.py`: `_try_hf_download()` 함수 추가. `EMBEDDING_HF_REPO` 환경변수 설정 시
+  서버 기동 전에 HF Hub에서 임베딩 자동 다운로드 → `data/`에 캐싱
+- `requirements.txt`: `huggingface_hub` 추가 (다운로드용)
+- `.dockerignore`: `.env`, `.env.local`, `docker-compose.yml` 제외 (시크릿/dev 파일)
+- `README.md`: 빈 메타데이터 페이지에서 → 운영자가 1회 읽고 그대로 실행 가능한 가이드
+
+### 임베딩 파일 처리 — 하이브리드 전략
+| 옵션 | 설정 | 동작 |
+|---|---|---|
+| A. HF Hub 자동 다운로드 (권장) | `.env`에 `EMBEDDING_HF_REPO=user/repo` | 첫 기동 시 자동 받음, `data/`에 캐싱 |
+| B. 로컬 파일 직접 배치 | `data/embedding_dictionary_e5.json` 두기 | 도커 볼륨 마운트로 그대로 사용 |
+| C. 둘 다 미설정 | (아무것도 안 함) | 서버는 기동, 게임 라우트는 503. `/health`로 상태 확인 |
+
+### 사용자가 1줄로 실행 가능해진 케이스
+```bash
+# 도커 (권장)
+git clone <repo>
+cd ccomantle
+cp .env.example .env  # → EMBEDDING_HF_REPO 값 입력
+docker compose up
+
+# 도커 없는 경로
+pip install -r requirements.txt
+export EMBEDDING_HF_REPO=user/repo
+python src/app.py
+```
+
+### 추가된 환경변수
+| 변수 | 기본값 | 용도 |
+|---|---|---|
+| `EMBEDDING_HF_REPO` | (없음) | 비어있으면 HF 다운로드 시도 안 함 |
+| `EMBEDDING_HF_FILE` | `embedding_dictionary_e5.json` | HF repo 내 파일명 |
+| `EMBEDDING_HF_TYPE` | `dataset` | `dataset`/`model`/`space` |
+| `EMBEDDING_FILE` | `data/embedding_dictionary_e5.json` | 로컬 경로 오버라이드 |
+
+---
+
 ## [6번] QR 시나리오 안정화 — 모바일 + 동시성 + 친화적 UX (2026-05-09)
 
 ### 배경
