@@ -1,5 +1,64 @@
 # Refactoring Changelog
 
+## [9번] 게임 레이아웃 3분할 + 최종 결과에 라운드별 단어 표시 (2026-05-09)
+
+### 배경
+기존 4분할(2x2 grid)에서 과거 라운드를 홀짝으로 나눠 좌우 패널에 분배.
+가독성 안 좋다는 피드백 — 한 라운드 보려고 두 패널을 번갈아 보게 됨.
+또 최종 결과 화면에 평균 유사도만 표시되어, 게임 끝나고 정작 "어떤 단어 냈는지"
+정보가 빠져 있었음.
+
+### 변경 내용
+
+**레이아웃 — 4분할에서 3분할로**
+- 좌상: 입력 패널 (팀 이름·색상·단어)
+- 좌하: 현재 라운드 리더보드
+- 우: 과거 라운드 통합 (전체 높이 차지, 최신이 위로 정렬)
+
+CSS grid-template-areas 사용:
+```
+"input past"
+"current past"
+```
+
+**최종 결과 — 라운드별 단어 표시**
+- 서버: `final_result()`가 팀별 `submissions[]` 배열 반환 (라운드 + 단어 + 유사도)
+- 클라이언트: 표 컬럼 추가 + 칩 형태로 R1[사과 0.91] R2[배 0.83] ... 표시
+
+**부가 개선**
+- 팀명 입력칸 `autofocus` (페이지 진입 후 바로 타이핑 가능)
+- 라운드 진행 dots 6개 (●○○○○○ 형태로 시각화)
+- 과거 라운드 시간 역순 (최신이 위)
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `static/game.html` | div 클래스 grid-2x2 → layout-3pane, 패널 4 → 3, autofocus, 진행 dots, final 컬럼 |
+| `static/css/game.css` | grid-template-areas 정의, .round-progress / .final-words 스타일, 모바일 분기 갱신 |
+| `static/js/game.js` | renderPastRounds 단일 panel + 역순, renderRoundProgress 추가, loadFinalResult 라운드 단어 표시, escapeHtml 헬퍼 |
+| `src/core/game.py` | final_result()가 팀별 submissions 배열 포함하도록 확장 |
+
+### API 변경
+**`/final_result` 응답 확장** (이전과 호환, 필드 추가만)
+```json
+{
+  "answer": "...",
+  "result": [
+    {
+      "team": "팀A",
+      "team_color": "#...",
+      "avg": 0.821,
+      "submissions": [
+        { "round": 1, "word": "사과", "similarity": 0.91 },
+        ...
+      ]
+    }
+  ]
+}
+```
+
+---
+
 ## [7번] 1줄 실행 인프라 — docker compose + HF Hub 자동 다운로드 (2026-05-09)
 
 ### 배경

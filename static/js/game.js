@@ -91,6 +91,7 @@ async function loadBoard() {
     document.getElementById("round-label").innerText =
       `현재 라운드: ${currentRound} / ${maxRounds}`;
     document.getElementById("current-round-text").innerText = `${currentRound} 라운드`;
+    renderRoundProgress(currentRound, maxRounds);
 
     document.getElementById("sim-top1").innerText =
       data.sim_top1 ? data.sim_top1.toFixed(3) : "-";
@@ -198,21 +199,15 @@ function formatRank(row) {
 }
 
 function renderPastRounds(rounds, currentRound) {
-  const left = document.getElementById("past-left");
-  const right = document.getElementById("past-right");
-  left.innerHTML = "";
-  right.innerHTML = "";
+  const container = document.getElementById("past-all");
+  container.innerHTML = "";
 
-  let hasLeft = false;
-  let hasRight = false;
-
-  for (let r = 1; r < currentRound; r++) {
+  // 최신 라운드를 위로 (역순)
+  let any = false;
+  for (let r = currentRound - 1; r >= 1; r--) {
     const list = rounds[String(r)] || [];
     if (!list.length) continue;
-
-    const target = r % 2 === 1 ? left : right;
-    if (r % 2 === 1) hasLeft = true;
-    else hasRight = true;
+    any = true;
 
     const wrapper = document.createElement("div");
     wrapper.className = "past-table-wrapper";
@@ -270,22 +265,24 @@ function renderPastRounds(rounds, currentRound) {
 
     table.appendChild(tbody);
     wrapper.appendChild(table);
-    target.appendChild(wrapper);
+    container.appendChild(wrapper);
   }
 
-  if (!hasLeft) {
+  if (!any) {
     const n = document.createElement("div");
     n.className = "no-data";
-    n.textContent = "표시할 과거 라운드가 없습니다.";
-    left.appendChild(n);
+    n.textContent = "아직 종료된 라운드가 없습니다.";
+    container.appendChild(n);
   }
+}
 
-  if (!hasRight) {
-    const n = document.createElement("div");
-    n.className = "no-data";
-    n.textContent = "표시할 과거 라운드가 없습니다.";
-    right.appendChild(n);
-  }
+function renderRoundProgress(currentRound, maxRounds) {
+  const dots = document.querySelectorAll("#round-progress .rp-dot");
+  dots.forEach((el, i) => {
+    el.classList.remove("rp-done", "rp-active");
+    if (i + 1 < currentRound) el.classList.add("rp-done");
+    else if (i + 1 === currentRound) el.classList.add("rp-active");
+  });
 }
 
 async function loadFinalResult() {
@@ -315,8 +312,24 @@ async function loadFinalResult() {
       tr.appendChild(tdTeam);
 
       const tdAvg = document.createElement("td");
-      tdAvg.textContent = row.avg.toFixed(3);
+      tdAvg.textContent = (row.avg || 0).toFixed(3);
       tr.appendChild(tdAvg);
+
+      // 라운드별 제출 단어 + 유사도 칩 형태로
+      const tdWords = document.createElement("td");
+      tdWords.className = "final-words";
+      (row.submissions || []).forEach((sub) => {
+        const item = document.createElement("span");
+        item.className = "fw-item";
+        item.innerHTML =
+          `<span class="fw-round">R${sub.round}</span>` +
+          `<span class="fw-word">${escapeHtml(sub.word)}</span>` +
+          `<span class="fw-sim">${
+            typeof sub.similarity === "number" ? sub.similarity.toFixed(3) : "-"
+          }</span>`;
+        tdWords.appendChild(item);
+      });
+      tr.appendChild(tdWords);
 
       tbody.appendChild(tr);
     });
@@ -325,6 +338,12 @@ async function loadFinalResult() {
   } catch (e) {
     console.error(e);
   }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
 }
 
 loadBoard();
