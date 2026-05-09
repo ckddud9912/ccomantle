@@ -5,8 +5,13 @@ __pycache__/
 *.pyc
 *.pyo
 
+# 시크릿/로컬 설정
+.env
+.env.local
+
 docs/
 requirements-dev.txt
+docker-compose.yml
 
 # 전처리 스크립트는 서버에 불필요
 src/E5_embedding_ver2.py
