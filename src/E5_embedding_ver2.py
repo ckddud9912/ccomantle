@@ -25,7 +25,12 @@ RAW_OUTPUT_FILE = os.path.join(DATA_PATH, "embedding_dictionary_e5_raw.json")
 # ===========================================
 MODEL_NAME = "intfloat/multilingual-e5-large"
 BATCH_SIZE = 64
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    DEVICE = "mps"
+else:
+    DEVICE = "cpu"
 
 TARGET_TOP1000 = 0.63               # 목표 유사도
 SCALE_RANGE = np.linspace(0.5, 3.0, 40)   # 탐색 범위
