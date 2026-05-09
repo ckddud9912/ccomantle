@@ -8,8 +8,8 @@
   <link rel="stylesheet" href="/static/css/game.css" />
 </head>
 <body>
-<div class="grid-2x2">
-  <!-- 1번 영역: 입력 -->
+<div class="layout-3pane">
+  <!-- 좌상: 입력 -->
   <section class="panel" id="panel-input">
     <h2>🎮 시그널</h2>
     <small>정답은 하나, 6라운드 안에 최대한 가까이 다가가 보세요.</small>
@@ -19,6 +19,11 @@
       <span id="round-label">현재 라운드: - / 6</span>
     </div>
 
+    <div class="round-progress" id="round-progress" aria-label="라운드 진행">
+      <span class="rp-dot"></span><span class="rp-dot"></span><span class="rp-dot"></span>
+      <span class="rp-dot"></span><span class="rp-dot"></span><span class="rp-dot"></span>
+    </div>
+
     <div class="meta-line" id="sim-meta">
       최상위 유사도: <span id="sim-top1">-</span>,
       20위 유사도: <span id="sim-top20">-</span>,
@@ -26,7 +31,7 @@
     </div>
 
     <div class="field-label">팀 이름</div>
-    <input type="text" id="team" placeholder="예: 블루팀" />
+    <input type="text" id="team" placeholder="예: 블루팀" autofocus />
 
     <div class="field-label">팀 색상 선택</div>
     <input type="color" id="teamColor" value="#3b82f6" />
@@ -39,7 +44,7 @@
     <div class="latest-text" id="latest"></div>
   </section>
 
-  <!-- 2번 영역: 현재 라운드 리더보드 -->
+  <!-- 좌하: 현재 라운드 리더보드 -->
   <section class="panel" id="panel-current">
     <div class="panel-title-row">
       <h2>🏆 현재 라운드 리더보드</h2>
@@ -68,22 +73,13 @@
     </div>
   </section>
 
-  <!-- 3번 영역: 과거 라운드 (홀수) -->
-  <section class="panel" id="panel-past-left">
+  <!-- 우: 과거 라운드 전체 (스크롤) -->
+  <section class="panel" id="panel-past">
     <div class="panel-title-row">
-      <h2>📜 과거 라운드 (1,3,5…)</h2>
-      <div class="panel-subtitle">이전 라운드 기록</div>
+      <h2>📜 과거 라운드 기록</h2>
+      <div class="panel-subtitle">최신 라운드가 위쪽</div>
     </div>
-    <div class="past-scroll" id="past-left"></div>
-  </section>
-
-  <!-- 4번 영역: 과거 라운드 (짝수) -->
-  <section class="panel" id="panel-past-right">
-    <div class="panel-title-row">
-      <h2>📜 과거 라운드 (2,4,6…)</h2>
-      <div class="panel-subtitle">이전 라운드 기록</div>
-    </div>
-    <div class="past-scroll" id="past-right"></div>
+    <div class="past-scroll" id="past-all"></div>
   </section>
 </div>
 
@@ -92,14 +88,15 @@
   <div id="final-card">
     <h2>🏁 최종 결과</h2>
     <p id="final-answer" class="final-answer"></p>
-    <p>팀별 평균 유사도 순으로 정렬되어 있습니다.</p>
+    <p>팀별 평균 유사도 순. 각 팀이 라운드별로 어떤 단어를 제출했는지 함께 표시됩니다.</p>
     <div id="final-body">
       <table id="final-table">
         <thead>
           <tr>
             <th>순위</th>
             <th>팀</th>
-            <th>평균 유사도</th>
+            <th>평균</th>
+            <th>라운드별 제출 단어</th>
           </tr>
         </thead>
         <tbody id="final-tbody"></tbody>

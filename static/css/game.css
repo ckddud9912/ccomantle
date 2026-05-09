@@ -10,13 +10,21 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-.grid-2x2 {
+/* 데스크탑: 2열, 좌측은 위/아래 분할, 우측은 통합 */
+.layout-3pane {
   display: grid;
-  grid-template-columns: 1.1fr 1.4fr;
-  grid-template-rows: 1.1fr 1.1fr;
+  grid-template-columns: 1.1fr 1.5fr;
+  grid-template-rows: minmax(0, auto) minmax(0, 1fr);
+  grid-template-areas:
+    "input past"
+    "current past";
   gap: 24px;
   height: calc(100vh - 48px);
 }
+
+#panel-input    { grid-area: input; }
+#panel-current  { grid-area: current; }
+#panel-past     { grid-area: past; }
 
 .panel {
   background: var(--bg);
@@ -339,8 +347,8 @@ th {
     padding: 12px;
   }
 
-  /* 데스크탑 2x2 그리드 → 세로 스택. 화면 높이 제약도 해제 */
-  .grid-2x2 {
+  /* 데스크탑 3분할 → 세로 스택. 화면 높이 제약 해제 */
+  .layout-3pane {
     display: flex;
     flex-direction: column;
     height: auto;
@@ -416,5 +424,59 @@ th {
   .final-answer {
     font-size: 15px;
   }
+}
+
+/* ============================================
+ * 라운드 진행 dots (좌상 입력 패널)
+ * ============================================ */
+.round-progress {
+  display: inline-flex;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.rp-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--border);
+  border: 1px solid var(--border-input);
+}
+
+.rp-dot.rp-done   { background: var(--green); border-color: var(--green); }
+.rp-dot.rp-active { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.18); }
+
+/* ============================================
+ * 최종 결과 — 라운드별 단어 inline 표시
+ * ============================================ */
+.final-words {
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: left;
+  white-space: normal;
+}
+
+.final-words .fw-item {
+  display: inline-block;
+  margin: 2px 6px 2px 0;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+}
+
+.final-words .fw-round {
+  color: var(--text-muted);
+  margin-right: 3px;
+  font-size: 10px;
+}
+
+.final-words .fw-word {
+  font-weight: 600;
+}
+
+.final-words .fw-sim {
+  color: var(--text-muted);
+  margin-left: 4px;
 }
 

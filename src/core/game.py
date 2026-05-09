@@ -167,19 +167,37 @@ class GameState:
             self.finished = True
 
     def final_result(self) -> List[Dict]:
-        scores: Dict[str, List[float]] = {}
-        for r in self.rounds.values():
-            for s in r:
-                if isinstance(s["similarity"], float):
-                    scores.setdefault(s["team"], []).append(s["similarity"])
+        """
+        팀별 평균 유사도 + 라운드별 제출 단어 목록 반환.
+        예) [{team, team_color, avg, submissions: [{round, word, similarity}, ...]}]
+        """
+        per_team: Dict[str, Dict] = {}
 
-        result = [
-            {
-                "team": t,
-                "team_color": self.team_colors.get(t),
-                "avg": round(sum(sims) / len(sims), 4),
-            }
-            for t, sims in scores.items()
-        ]
+        for r_num, entries in self.rounds.items():
+            for s in entries:
+                team = s["team"]
+                if team not in per_team:
+                    per_team[team] = {
+                        "team": team,
+                        "team_color": self.team_colors.get(team),
+                        "submissions": [],
+                    }
+                per_team[team]["submissions"].append({
+                    "round": r_num,
+                    "word": s["word"],
+                    "similarity": s["similarity"],
+                })
+
+        result = []
+        for team, info in per_team.items():
+            sims = [
+                sub["similarity"] for sub in info["submissions"]
+                if isinstance(sub["similarity"], float)
+            ]
+            avg = round(sum(sims) / len(sims), 4) if sims else 0.0
+            info["submissions"].sort(key=lambda x: x["round"])
+            info["avg"] = avg
+            result.append(info)
+
         result.sort(key=lambda x: x["avg"], reverse=True)
         return result
