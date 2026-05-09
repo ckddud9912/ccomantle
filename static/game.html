@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>시그널 게임</title>
   <link rel="stylesheet" href="/static/css/variables.css" />
   <link rel="stylesheet" href="/static/css/game.css" />
@@ -90,7 +91,8 @@
 <div id="final-overlay">
   <div id="final-card">
     <h2>🏁 최종 결과</h2>
-    <p>경기가 종료되었습니다. 팀별 평균 유사도 순으로 정렬되어 있습니다.</p>
+    <p id="final-answer" class="final-answer"></p>
+    <p>팀별 평균 유사도 순으로 정렬되어 있습니다.</p>
     <div id="final-body">
       <table id="final-table">
         <thead>

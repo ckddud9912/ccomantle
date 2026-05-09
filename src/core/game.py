@@ -1,3 +1,4 @@
+import asyncio
 import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
@@ -42,19 +43,23 @@ class GameState:
     finished: bool = False
     team_colors: Dict[str, str] = field(default_factory=dict)
 
+    # 동시성 보호: 모든 mutation을 직렬화. 여러 팀이 동시에 /guess 호출 시
+    # team_colors 덮어쓰기 / rounds.append race / 중복검사 race 방지
+    _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+
     # ----- 정답 설정 -----
-    def reset_for_answer(self, answer: str) -> None:
+    async def reset_for_answer(self, answer: str) -> None:
         if answer not in self.store:
             raise KeyError(answer)
 
-        self.answer_word = answer
-        self.answer_vector = self.store.vector(answer)
-        self.rounds = {i: [] for i in range(1, MAX_ROUNDS + 1)}
-        self.current_round = 1
-        self.finished = False
-        self.team_colors = {}
-
-        self._compute_rankings()
+        async with self._lock:
+            self.answer_word = answer
+            self.answer_vector = self.store.vector(answer)
+            self.rounds = {i: [] for i in range(1, MAX_ROUNDS + 1)}
+            self.current_round = 1
+            self.finished = False
+            self.team_colors = {}
+            self._compute_rankings()
 
     def _compute_rankings(self) -> None:
         sims = self.store.matrix @ self.answer_vector  # (N,)
@@ -81,41 +86,43 @@ class GameState:
         self.sim_top1000 = _scale_scalar(top1000, self.sim_alpha)
 
     # ----- 라운드 -----
-    def set_round(self, r: int) -> None:
+    async def set_round(self, r: int) -> None:
         if not (1 <= r <= MAX_ROUNDS):
             raise ValueError(f"invalid round: {r}")
-        self.current_round = r
+        async with self._lock:
+            self.current_round = r
 
     # ----- 추측 -----
-    def submit_guess(self, team: str, word: str, color: str) -> Dict:
-        if self.finished:
-            return {"result": "error", "error": "경기가 종료되었습니다."}
+    async def submit_guess(self, team: str, word: str, color: str) -> Dict:
+        async with self._lock:
+            if self.finished:
+                return {"result": "error", "error": "경기가 종료되었습니다."}
 
-        if self.answer_word is None:
-            return {"result": "error", "error": "정답이 아직 설정되지 않았습니다."}
+            if self.answer_word is None:
+                return {"result": "error", "error": "정답이 아직 설정되지 않았습니다."}
 
-        if team not in self.team_colors:
-            self.team_colors[team] = color
+            if team not in self.team_colors:
+                self.team_colors[team] = color
 
-        for s in self.rounds[self.current_round]:
-            if s["team"] == team:
-                return {"result": "duplicate"}
+            for s in self.rounds[self.current_round]:
+                if s["team"] == team:
+                    return {"result": "duplicate"}
 
-        if word == self.answer_word:
-            entry = self._make_entry(team, word, is_answer=True, rank=1, similarity=1.0)
+            if word == self.answer_word:
+                entry = self._make_entry(team, word, is_answer=True, rank=1, similarity=1.0)
+                self.rounds[self.current_round].append(entry)
+                return {"result": "correct", "entry": entry}
+
+            if word not in self.store:
+                return {"result": "error", "error": "사전에 없는 단어입니다. 일반 한국어 명사 약 5만개 중에서 골라주세요."}
+
+            raw = float(self.answer_vector @ self.store.vector(word))
+            sim = round(_scale_scalar(raw, self.sim_alpha), 3)
+            rank = self.word_to_rank.get(word)
+
+            entry = self._make_entry(team, word, is_answer=False, rank=rank, similarity=sim)
             self.rounds[self.current_round].append(entry)
-            return {"result": "correct", "entry": entry}
-
-        if word not in self.store:
-            return {"result": "error", "error": "사전에 없는 단어입니다."}
-
-        raw = float(self.answer_vector @ self.store.vector(word))
-        sim = round(_scale_scalar(raw, self.sim_alpha), 3)
-        rank = self.word_to_rank.get(word)
-
-        entry = self._make_entry(team, word, is_answer=False, rank=rank, similarity=sim)
-        self.rounds[self.current_round].append(entry)
-        return {"result": "ok", "entry": entry}
+            return {"result": "ok", "entry": entry}
 
     def _make_entry(self, team: str, word: str, *, is_answer: bool, rank, similarity: float) -> Dict:
         return {
@@ -128,7 +135,7 @@ class GameState:
             "similarity": similarity,
         }
 
-    # ----- 조회 -----
+    # ----- 조회 (lock 없이도 안전한 read-only) -----
     def leaderboard(self) -> Dict:
         sorted_rounds = {
             str(r): sorted(self.rounds[r], key=lambda x: x["similarity"], reverse=True)
@@ -155,8 +162,9 @@ class GameState:
         ]
 
     # ----- 종료 / 최종 성적 -----
-    def end(self) -> None:
-        self.finished = True
+    async def end(self) -> None:
+        async with self._lock:
+            self.finished = True
 
     def final_result(self) -> List[Dict]:
         scores: Dict[str, List[float]] = {}
