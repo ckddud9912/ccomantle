@@ -16,9 +16,12 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 STATIC_DIR = os.path.join(ROOT_DIR, "static")
 DATA_DIR = os.path.join(ROOT_DIR, "data")
 
-EMBEDDING_FILE = os.environ.get(
-    "EMBEDDING_FILE",
-    os.path.join(DATA_DIR, "embedding_dictionary_e5.json"),
+# 빈 문자열도 "미설정"으로 간주. .env 파일에 EMBEDDING_FILE= 라고만
+# 적혀 있으면 os.environ.get(..., default)가 빈 문자열을 반환하기 때문에
+# `or` 로 fallback 처리해야 한다.
+EMBEDDING_FILE = (
+    os.environ.get("EMBEDDING_FILE")
+    or os.path.join(DATA_DIR, "embedding_dictionary_e5.json")
 )
 
 
@@ -32,8 +35,9 @@ def _try_hf_download() -> bool:
     if not repo:
         return False
 
-    filename = os.environ.get("EMBEDDING_HF_FILE", "embedding_dictionary_e5.json")
-    repo_type = os.environ.get("EMBEDDING_HF_TYPE", "dataset")
+    # 빈 문자열도 미설정으로 간주 → 기본값 사용
+    filename = os.environ.get("EMBEDDING_HF_FILE") or "embedding_dictionary_e5.json"
+    repo_type = os.environ.get("EMBEDDING_HF_TYPE") or "dataset"
 
     try:
         from huggingface_hub import hf_hub_download
