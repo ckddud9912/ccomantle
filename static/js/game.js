@@ -1,20 +1,36 @@
 let lastCorrectKey = null;
 let pollId = null;
 
-document.getElementById("word").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendGuess();
+const wordInput = document.getElementById("word");
+
+// 한글 IME 조합 중에는 Enter를 무시 (조합 미완성 상태로 제출되는 것 방지)
+wordInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) {
+    sendGuess();
+  }
 });
 
 document.getElementById("final-close").addEventListener("click", () => {
   document.getElementById("final-overlay").style.display = "none";
 });
 
+function showLatest(text, kind = "info") {
+  const el = document.getElementById("latest");
+  el.innerText = text;
+  el.dataset.kind = kind;  // info | error | success
+  if (kind === "error") {
+    wordInput.classList.add("input-shake");
+    setTimeout(() => wordInput.classList.remove("input-shake"), 500);
+  }
+}
+
 async function sendGuess() {
   const team = document.getElementById("team").value.trim();
-  const word = document.getElementById("word").value.trim();
+  const word = wordInput.value.trim();
   const team_color = document.getElementById("teamColor").value;
 
-  if (!team || !word) return;
+  if (!team) return showLatest("팀 이름을 먼저 입력해주세요.", "error");
+  if (!word) return showLatest("단어를 입력해주세요.", "error");
 
   try {
     const res = await fetch("/guess", {
@@ -25,30 +41,32 @@ async function sendGuess() {
     const data = await res.json();
 
     if (data.error) {
-      document.getElementById("latest").innerText = data.error;
+      showLatest(data.error, "error");
       return;
     }
 
     if (data.result === "duplicate") {
-      document.getElementById("latest").innerText = "이미 이 라운드에서 제출했습니다.";
+      showLatest("이미 이 라운드에서 제출했습니다.", "error");
       return;
     }
 
     if (data.entry) {
       const e = data.entry;
-      document.getElementById("latest").innerText =
+      const msg =
         `[${e.round}R][${e.team}] ${e.word} → 유사도 ${e.similarity?.toFixed(3) ?? "-"}` +
         (e.rank ? ` / ${e.rank}위` : "");
+      showLatest(msg, data.result === "correct" ? "success" : "info");
 
       if (data.result === "correct") {
         lastCorrectKey = `${e.round}::${e.team}::${e.word}`;
       }
     }
 
-    document.getElementById("word").value = "";
+    wordInput.value = "";
     await loadBoard();
   } catch (err) {
     console.error(err);
+    showLatest("네트워크 오류. 잠시 후 다시 시도해주세요.", "error");
   }
 }
 
@@ -274,6 +292,13 @@ async function loadFinalResult() {
   try {
     const res = await fetch("/final_result");
     const data = await res.json();
+
+    // 정답 단어 공개 (게임 끝났을 때 가장 궁금한 정보)
+    const titleEl = document.getElementById("final-answer");
+    if (titleEl) {
+      titleEl.textContent = data.answer ? `정답: ${data.answer}` : "";
+    }
+
     const tbody = document.getElementById("final-tbody");
     tbody.innerHTML = "";
 

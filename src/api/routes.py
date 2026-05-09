@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from api.schemas import GuessRequest, RoundRequest, SetAnswerRequest
@@ -9,13 +9,36 @@ router = APIRouter()
 
 
 def get_game(request: Request) -> GameState:
-    return request.app.state.game
+    game = request.app.state.game
+    if game is None:
+        raise HTTPException(
+            status_code=503,
+            detail="임베딩 파일이 로드되지 않았습니다. 운영자에게 문의하세요.",
+        )
+    return game
 
 
+# ===========================================
+# 헬스체크 — 인프라/오케스트레이터용
+# ===========================================
+@router.get("/health")
+async def health(request: Request):
+    game = request.app.state.game
+    if game is None:
+        return JSONResponse(
+            status_code=503,
+            content={"ready": False, "reason": "embedding file not loaded"},
+        )
+    return {"ready": True, "words": len(game.store)}
+
+
+# ===========================================
+# 게임 API
+# ===========================================
 @router.post("/set_answer")
 async def set_answer(req: SetAnswerRequest, game: GameState = Depends(get_game)):
     try:
-        game.reset_for_answer(req.answer)
+        await game.reset_for_answer(req.answer)
     except KeyError:
         return JSONResponse({"error": "사전에 없는 단어입니다."})
     return {"status": "ok", "answer": game.answer_word}
@@ -24,7 +47,7 @@ async def set_answer(req: SetAnswerRequest, game: GameState = Depends(get_game))
 @router.post("/set_round")
 async def set_round(req: RoundRequest, game: GameState = Depends(get_game)):
     try:
-        game.set_round(req.round)
+        await game.set_round(req.round)
     except ValueError:
         return JSONResponse({"error": "Invalid round"}, status_code=400)
     return {"status": "ok", "current_round": game.current_round}
@@ -36,7 +59,7 @@ async def guess(req: GuessRequest, game: GameState = Depends(get_game)):
     word = req.word.strip()
     color = (req.team_color or "#3b82f6").strip()
 
-    result = game.submit_guess(team, word, color)
+    result = await game.submit_guess(team, word, color)
     if result.get("result") == "error":
         return JSONResponse({"error": result["error"]})
     return result
@@ -56,10 +79,13 @@ async def top1000(game: GameState = Depends(get_game)):
 
 @router.post("/end_game")
 async def end_game(game: GameState = Depends(get_game)):
-    game.end()
+    await game.end()
     return {"status": "finished"}
 
 
 @router.get("/final_result")
 async def final_result(game: GameState = Depends(get_game)):
-    return {"result": game.final_result()}
+    return {
+        "result": game.final_result(),
+        "answer": game.answer_word,  # 최종 결과 화면에 정답 공개
+    }

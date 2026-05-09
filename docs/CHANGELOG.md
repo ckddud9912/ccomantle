@@ -1,5 +1,53 @@
 # Refactoring Changelog
 
+## [6번] QR 시나리오 안정화 — 모바일 + 동시성 + 친화적 UX (2026-05-09)
+
+### 배경
+"운영자가 정답 설정 → QR 공유 → 모르는 사람이 모바일로 바로 단어 제출"
+시나리오를 차단 없이 만드는 것이 목표. 보안보다 즉시 사용성에 중점.
+
+### 변경 내용
+
+**서버 (동시성 + 회복력)**
+- `core/game.py`: `asyncio.Lock` 도입. 모든 mutation 메서드(`reset_for_answer`,
+  `set_round`, `submit_guess`, `end`)가 직렬화됨. 여러 팀 동시 제출 시 발생하던
+  `team_colors` 덮어쓰기 / `rounds.append` race / 중복검사 race 모두 차단
+- `app.py`: 임베딩 파일 없어도 서버 기동. 라우트는 503 반환 (운영자가 컨테이너
+  로그 보고 원인 파악 가능, 파일만 따로 올리면 재시작 한 번이면 복구)
+- `app.py`: `EMBEDDING_FILE` 환경변수로 경로 오버라이드 가능
+- `api/routes.py`: `/health` 엔드포인트 신규. `{ready, words}` 반환
+- `api/routes.py`: `/final_result`에 `answer` 필드 추가 (게임 종료 후 정답 공개)
+- `api/routes.py`: `get_game` dependency가 임베딩 미로드 시 503으로 실패
+
+**클라이언트 (모바일 + UX)**
+- `static/js/game.js`: 한글 IME 조합 중 Enter 무시 (`e.isComposing`, keyCode 229)
+- `static/js/game.js`: 단어 거부 시 입력칸 흔들기 + orange 색상 (`showLatest` 헬퍼)
+- `static/js/game.js`: 최종 결과 오버레이에 정답 단어 표시
+- `static/css/game.css`: 흔들기 애니메이션 + 모바일 `@media (max-width: 768px)`
+  분기 (2x2 그리드 → 세로 스택, 폰트 16px+로 iOS 자동줌 방지, 막대 컬럼 숨김)
+- `static/css/admin.css`: 모바일 `@media` 분기 (운영자도 폰으로 조작 가능하도록)
+- `static/game.html` / `admin.html`: viewport meta 추가
+- `static/game.html`: 정답 표시용 `<p id="final-answer">` 추가
+
+**문서**
+- `README.md`: 운영자 셋업 3단계 (임베딩 → 로컬 실행 → QR 공유) 가이드
+- `docs/CHANGELOG.md`: 본 항목 추가
+
+### 사용자가 친화적 에러 메시지 받게 된 케이스
+| 상황 | 변경 전 | 변경 후 |
+|---|---|---|
+| 사전 미등록 단어 | "사전에 없는 단어입니다." | "사전에 없는 단어입니다. 일반 한국어 명사 약 5만개 중에서 골라주세요." + 입력칸 흔들기 |
+| 팀명 누락 | 무반응 | "팀 이름을 먼저 입력해주세요." |
+| 네트워크 오류 | 콘솔만 | "네트워크 오류. 잠시 후 다시 시도해주세요." |
+| 한글 입력 후 Enter | 조합 중 상태로 제출됨 | IME 조합 완료 후에만 제출 |
+| 모바일 접속 | 데스크탑 2x2 그리드 짜부라짐 | 세로 스택, 입력 우선 표시 |
+
+### API 변경 사항
+- `/health` 신규
+- `/final_result` 응답에 `answer` 필드 추가 (이전 호출부와 호환됨, 추가만)
+
+---
+
 ## [4번] 정적 파일 CSS/JS 분리 및 CSS 변수화 (2026-05-08)
 
 ### 문제
