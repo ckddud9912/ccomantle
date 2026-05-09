@@ -163,3 +163,62 @@ th {
   background: var(--border-muted);
   color: var(--text);
 }
+
+/* ============================================
+ * 모바일 (운영자가 폰으로 정답 설정/라운드 변경하는 케이스)
+ * ============================================ */
+@media (max-width: 768px) {
+  body {
+    padding: 12px;
+  }
+
+  .card {
+    padding: 14px 16px;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  /* iOS 자동 줌 방지 */
+  input[type="text"],
+  input[type="number"] {
+    font-size: 16px;
+    padding: 12px;
+  }
+
+  button {
+    font-size: 14px;
+    padding: 12px 14px;
+  }
+
+  /* 라운드 버튼 6개가 한 줄에 들어가도록 */
+  .round-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .round-buttons button {
+    flex: 1 1 auto;
+    min-width: 44px;
+    margin-right: 0;
+  }
+
+  /* TOP1000 팝업 */
+  #top1000-card {
+    padding: 14px;
+    width: 94vw;
+    max-height: 92vh;
+  }
+
+  #top1000-card h2 {
+    font-size: 16px;
+  }
+
+  th, td {
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+}
+
