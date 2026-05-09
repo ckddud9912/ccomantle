@@ -88,20 +88,46 @@
   <div id="final-card">
     <h2>🏁 최종 결과</h2>
     <p id="final-answer" class="final-answer"></p>
-    <p>팀별 평균 유사도 순. 각 팀이 라운드별로 어떤 단어를 제출했는지 함께 표시됩니다.</p>
+
     <div id="final-body">
-      <table id="final-table">
-        <thead>
-          <tr>
-            <th>순위</th>
-            <th>팀</th>
-            <th>평균</th>
-            <th>라운드별 제출 단어</th>
-          </tr>
-        </thead>
-        <tbody id="final-tbody"></tbody>
-      </table>
+      <!-- 섹션 1: 단어 랭킹 (모든 제출 단어 점수순) -->
+      <section class="final-section">
+        <h3 class="final-section-title">🥇 단어 랭킹</h3>
+        <p class="final-section-desc">모든 제출 단어를 점수 높은 순으로 정렬</p>
+        <div class="final-section-scroll">
+          <table class="final-table">
+            <thead>
+              <tr>
+                <th>순위</th>
+                <th>단어</th>
+                <th>팀</th>
+                <th>R</th>
+                <th>점수</th>
+              </tr>
+            </thead>
+            <tbody id="final-words-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 섹션 2: 팀별 평균 + 베스트 단어 -->
+      <section class="final-section">
+        <h3 class="final-section-title">🏅 팀별 평균</h3>
+        <p class="final-section-desc">각 팀의 평균 유사도와 베스트 단어</p>
+        <table class="final-table">
+          <thead>
+            <tr>
+              <th>순위</th>
+              <th>팀</th>
+              <th>평균</th>
+              <th>베스트 단어</th>
+            </tr>
+          </thead>
+          <tbody id="final-teams-tbody"></tbody>
+        </table>
+      </section>
     </div>
+
     <button id="final-close">닫기</button>
   </div>
 </div>

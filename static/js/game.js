@@ -290,54 +290,120 @@ async function loadFinalResult() {
     const res = await fetch("/final_result");
     const data = await res.json();
 
-    // 정답 단어 공개 (게임 끝났을 때 가장 궁금한 정보)
+    // 정답 단어 공개
     const titleEl = document.getElementById("final-answer");
     if (titleEl) {
       titleEl.textContent = data.answer ? `정답: ${data.answer}` : "";
     }
 
-    const tbody = document.getElementById("final-tbody");
-    tbody.innerHTML = "";
+    const teams = data.result || [];
 
-    (data.result || []).forEach((row, idx) => {
-      const tr = document.createElement("tr");
-
-      const tdRank = document.createElement("td");
-      tdRank.textContent = idx + 1;
-      tr.appendChild(tdRank);
-
-      const tdTeam = document.createElement("td");
-      tdTeam.textContent = row.team;
-      tdTeam.style.color = row.team_color || "#3b82f6";
-      tr.appendChild(tdTeam);
-
-      const tdAvg = document.createElement("td");
-      tdAvg.textContent = (row.avg || 0).toFixed(3);
-      tr.appendChild(tdAvg);
-
-      // 라운드별 제출 단어 + 유사도 칩 형태로
-      const tdWords = document.createElement("td");
-      tdWords.className = "final-words";
-      (row.submissions || []).forEach((sub) => {
-        const item = document.createElement("span");
-        item.className = "fw-item";
-        item.innerHTML =
-          `<span class="fw-round">R${sub.round}</span>` +
-          `<span class="fw-word">${escapeHtml(sub.word)}</span>` +
-          `<span class="fw-sim">${
-            typeof sub.similarity === "number" ? sub.similarity.toFixed(3) : "-"
-          }</span>`;
-        tdWords.appendChild(item);
-      });
-      tr.appendChild(tdWords);
-
-      tbody.appendChild(tr);
-    });
+    renderFinalWordRanking(teams);
+    renderFinalTeamRanking(teams);
 
     document.getElementById("final-overlay").style.display = "flex";
   } catch (e) {
     console.error(e);
   }
+}
+
+// 섹션 1: 모든 제출 단어를 점수순으로
+function renderFinalWordRanking(teams) {
+  const tbody = document.getElementById("final-words-tbody");
+  tbody.innerHTML = "";
+
+  // 모든 팀의 모든 submission 을 평탄화
+  const allWords = [];
+  teams.forEach((t) => {
+    (t.submissions || []).forEach((sub) => {
+      allWords.push({
+        team: t.team,
+        team_color: t.team_color,
+        round: sub.round,
+        word: sub.word,
+        similarity: sub.similarity,
+      });
+    });
+  });
+
+  // 유사도 내림차순
+  allWords.sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0));
+
+  if (!allWords.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.className = "no-data";
+    td.textContent = "제출된 단어가 없습니다.";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+
+  allWords.forEach((row, idx) => {
+    const tr = document.createElement("tr");
+    if (idx === 0) tr.classList.add("row-top1");
+
+    appendCell(tr, idx + 1);
+    appendCell(tr, row.word);
+    appendTeamCell(tr, row.team, row.team_color);
+    appendCell(tr, `R${row.round}`);
+    appendCell(
+      tr,
+      typeof row.similarity === "number" ? row.similarity.toFixed(3) : "-"
+    );
+
+    tbody.appendChild(tr);
+  });
+}
+
+// 섹션 2: 팀별 평균 + 베스트 단어 한 개
+function renderFinalTeamRanking(teams) {
+  const tbody = document.getElementById("final-teams-tbody");
+  tbody.innerHTML = "";
+
+  teams.forEach((row, idx) => {
+    // 팀의 베스트 submission 찾기
+    const submissions = row.submissions || [];
+    const best = submissions.reduce(
+      (acc, s) =>
+        s.similarity != null && (acc == null || s.similarity > acc.similarity)
+          ? s
+          : acc,
+      null
+    );
+
+    const tr = document.createElement("tr");
+    if (idx === 0) tr.classList.add("row-top1");
+
+    appendCell(tr, idx + 1);
+    appendTeamCell(tr, row.team, row.team_color);
+    appendCell(tr, (row.avg || 0).toFixed(3));
+
+    const tdBest = document.createElement("td");
+    if (best) {
+      tdBest.textContent = `${best.word} (R${best.round}, ${best.similarity.toFixed(3)})`;
+    } else {
+      tdBest.textContent = "-";
+    }
+    tr.appendChild(tdBest);
+
+    tbody.appendChild(tr);
+  });
+}
+
+function appendCell(tr, text) {
+  const td = document.createElement("td");
+  td.textContent = text;
+  tr.appendChild(td);
+}
+
+function appendTeamCell(tr, team, color) {
+  const td = document.createElement("td");
+  td.textContent = team;
+  td.style.color = color || "#3b82f6";
+  td.style.fontWeight = "600";
+  tr.appendChild(td);
 }
 
 function escapeHtml(s) {
