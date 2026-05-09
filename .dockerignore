@@ -1,0 +1,14 @@
+.git/
+.gitignore
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+docs/
+requirements-dev.txt
+
+# 전처리 스크립트는 서버에 불필요
+src/E5_embedding_ver2.py
+src/make_words_from_vec.py
+src/run_embed.py

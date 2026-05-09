@@ -1,0 +1,5 @@
+# 전처리 파이프라인 전용 (서버 운영에는 불필요)
+torch
+transformers
+tqdm
+scikit-learn
