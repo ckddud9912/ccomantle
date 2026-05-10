@@ -1,5 +1,45 @@
 # Refactoring Changelog
 
+## [13번] 게임 재시작 — 팀 정보 유지하고 라운드만 리셋 (2026-05-10)
+
+### 배경
+게임 종료 후 같은 팀들로 새 정답을 가지고 다시 플레이하려면 서버 재시작 외에 방법이 없었음. handoff.md "Pending TODO" 에 명시되진 않았지만 운영 시 자연스럽게 필요한 기능.
+
+### 변경 내용
+
+**백엔드 — `GameState.restart()` + `POST /restart`**
+- 신규 메서드는 `team_colors` 만 유지하고 나머지(rounds, current_round, finished, answer_word, answer_vector, word_to_rank, sim_top*, sim_alpha) 모두 초기화
+- 기존 `reset_for_answer` 는 그대로 — 이쪽은 정답 설정 시점에 team_colors 까지 비우는 동작 유지 (장기적으론 분리하는 게 깔끔할 수 있음)
+- 락(`asyncio.Lock`) 안에서 처리해 진행 중 제출과 직렬화
+
+**어드민 — "게임 재시작" 버튼 + 안전한 트리거**
+- 경기 컨트롤 섹션에 버튼 1개 추가
+- 클릭 → confirm "게임을 재시작하시겠습니까? (라운드와 정답은 초기화, 팀명·팀색은 유지)" → 예 → `/restart`
+- 처음에 "경기 종료" 직후 자동으로 재시작 confirm 을 같이 띄우는 안도 검토했으나, 어드민의 misclick 으로 플레이어들의 final 결과 viewing 화면이 갑자기 끊길 수 있어서 **명시적 버튼만** 으로 한정
+- 종료 후엔 alert 텍스트로 "재시작하려면 버튼을 누르세요" 안내만 첨부
+
+**게임 클라이언트 — finished 상태에서도 폴링 유지**
+- 기존: `data.finished=true` 보면 `clearInterval` 로 폴링 중단 → 어드민이 재시작해도 클라이언트가 알 길 없음
+- 변경: `finalShown` 플래그 도입. finished=true 첫 진입 시에만 final 결과 로드, 이후엔 폴링은 계속 1.5s 마다 도는 상태
+- finished true → false 전환 감지 시 final 오버레이 닫고 `lastCorrectKey` 리셋 → 빈 보드로 자동 복귀 (사용자가 새로고침할 필요 없음)
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `src/core/game.py` | `restart()` 메서드 추가 |
+| `src/api/routes.py` | `POST /restart` 엔드포인트 |
+| `static/admin.html` | "게임 재시작" 버튼 |
+| `static/js/admin.js` | `restartGame()` + 버튼 핸들러. 종료 alert 텍스트 안내 |
+| `static/js/game.js` | `finalShown` 플래그, 폴링 영속화, 재시작 자동 복귀 로직 |
+
+### API 변경
+- `POST /restart` 신규. 응답 `{"status": "ok"}`. 인증 없음 (어드민 페이지 자체가 신뢰 환경 가정 — handoff.md 의 보안 우선순위 참고)
+
+### 확장 여지
+재시작 후 자동으로 새 정답까지 받는 흐름 (예: 어드민에서 정답 입력 → 재시작 동시 처리) 은 별도 작업으로 분리 가능. 현재는 어드민이 재시작 → 새 정답 설정 두 단계.
+
+---
+
 ## [12번] 내 팀 행 하이라이트 + 막대 색상 그라디언트 (2026-05-10)
 
 ### 배경

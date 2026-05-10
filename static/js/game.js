@@ -1,5 +1,6 @@
 let lastCorrectKey = null;
 let pollId = null;
+let finalShown = false;  // final-overlay 가 현재 표시 중인지 — 재시작 감지에 사용
 
 const MY_TEAM_KEY = "ccomantle.myTeam";
 const MY_COLOR_KEY = "ccomantle.myTeamColor";
@@ -114,12 +115,19 @@ async function loadBoard() {
     const data = await res.json();
 
     if (data.finished) {
-      if (pollId) {
-        clearInterval(pollId);
-        pollId = null;
+      // 한 번만 final 결과 로드. 폴링은 멈추지 않음 (재시작 감지를 위해)
+      if (!finalShown) {
+        finalShown = true;
+        await loadFinalResult();
       }
-      await loadFinalResult();
       return;
+    }
+
+    // 종료 상태였다가 풀려난 경우 = 어드민이 재시작함. 오버레이 닫고 보드 정리
+    if (finalShown) {
+      finalShown = false;
+      lastCorrectKey = null;
+      document.getElementById("final-overlay").style.display = "none";
     }
 
     const currentRound = data.current_round;

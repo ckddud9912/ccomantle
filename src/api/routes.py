@@ -83,6 +83,12 @@ async def end_game(game: GameState = Depends(get_game)):
     return {"status": "finished"}
 
 
+@router.post("/restart")
+async def restart(game: GameState = Depends(get_game)):
+    await game.restart()
+    return {"status": "ok"}
+
+
 @router.get("/final_result")
 async def final_result(game: GameState = Depends(get_game)):
     return {

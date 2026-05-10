@@ -166,6 +166,21 @@ class GameState:
         async with self._lock:
             self.finished = True
 
+    # ----- 게임 재시작 (팀명/팀색은 유지, 나머지 모두 초기화) -----
+    async def restart(self) -> None:
+        async with self._lock:
+            self.answer_word = None
+            self.answer_vector = None
+            self.word_to_rank = {}
+            self.sim_alpha = 1.0
+            self.sim_top1 = None
+            self.sim_top20 = None
+            self.sim_top1000 = None
+            self.rounds = {i: [] for i in range(1, MAX_ROUNDS + 1)}
+            self.current_round = 1
+            self.finished = False
+            # team_colors 는 그대로 유지 — 같은 팀들이 새 게임에 그대로 참여
+
     def final_result(self) -> List[Dict]:
         """
         팀별 평균 유사도 + 라운드별 제출 단어 목록 반환.
