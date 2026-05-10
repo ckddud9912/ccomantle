@@ -159,6 +159,12 @@ th {
   font-weight: 600;
 }
 
+/* 내 팀 행 강조: localStorage 의 팀명과 일치하는 행 */
+tbody tr.row-mine {
+  background: rgba(251, 191, 36, 0.12);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .sim-good { color: var(--green); }
 .sim-bad  { color: var(--orange); }
 
