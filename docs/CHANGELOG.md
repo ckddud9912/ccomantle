@@ -1,5 +1,45 @@
 # Refactoring Changelog
 
+## [12번] 내 팀 행 하이라이트 + 막대 색상 그라디언트 (2026-05-10)
+
+### 배경
+handoff.md "Pending TODO > 사용성" 두 항목 처리:
+- 자기 팀 행 강조 (리더보드에서 내 행을 한눈에 찾기 어려움)
+- 유사도에 따른 막대 색상 그라디언트 (현재 단색 파란색이라 진행감 약함)
+
+함께 favicon 404 도 해결 (별도 PR 분리하지 않고 한 번에).
+
+### 변경 내용
+
+**1. 내 팀 행 하이라이트**
+- 입력한 팀명을 `sessionStorage` 에 저장 (탭별 격리). 같은 브라우저 다른 탭에서 다른 팀이 흘러들지 않게 함 — 다중 디바이스 가정이 어려운 테스트 환경에서도 한 노트북에 여러 탭 띄우면 동작
+- `localStorage` 는 새 탭 첫 진입 시 입력란 자동 채우기 폴백으로만 사용
+- 팀 색상 picker 도 동일 패턴으로 sessionStorage 에 저장 → 새로고침 후에도 picker UI 가 마지막 선택색 유지
+- "내 팀" 식별은 **이 탭에서 마지막으로 제출한 팀** 기준 (입력란 글자만 바꾸는 걸로는 안 바뀜) — 오타나 다른 탭 영향 차단
+- CSS `.row-mine` : 노란 톤 배경 (`rgba(251,191,36,0.12)`) + 좌측 inset accent 막대
+
+**2. 막대 색상 그라디언트**
+- `barColorFor(row)` 함수: rank 1 → hue 130(초록), rank 1000 → hue 0(빨강) 으로 HSL 매핑
+- `is_answer` → `var(--accent)` (정답 노란색)
+- rank > 1000 또는 없음 → `var(--border-input)` (회색)
+- bar-fill 의 width(rank 기반) 와 background(rank 기반) 가 같이 움직이며 진행감 강화
+
+**3. favicon 404 해결**
+- `static/index.html` 에 `<link rel="icon" href="data:,">` 추가 — 빈 data URL 로 브라우저의 favicon.ico 자동 요청을 흡수해서 서버 로그의 404 제거
+- 함께 viewport meta 도 추가 (모바일 렌더링 일관성)
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `static/js/game.js` | sessionStorage 기반 내 팀 식별, `getMyTeam`, `barColorFor`, 색상 picker 복원 |
+| `static/css/game.css` | `.row-mine` 스타일 |
+| `static/index.html` | favicon 빈 data URL + viewport meta |
+
+### API 변경 없음
+모두 클라이언트 측 변경. 서버 `team_color` / `rank` 응답 필드 그대로 사용.
+
+---
+
 ## [11번] .env 자동 로드 — 도커/비도커 풀 자동화 (2026-05-09)
 
 ### 배경

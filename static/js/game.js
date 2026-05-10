@@ -1,7 +1,23 @@
 let lastCorrectKey = null;
 let pollId = null;
 
+const MY_TEAM_KEY = "ccomantle.myTeam";
+const MY_COLOR_KEY = "ccomantle.myTeamColor";
+
 const wordInput = document.getElementById("word");
+const teamInput = document.getElementById("team");
+const teamColorInput = document.getElementById("teamColor");
+
+// 입력란 초기값: 이 탭의 sessionStorage 우선, 없으면 localStorage 폴백.
+// session 이 없는 새 탭은 폴백으로 입력란만 채워주고, "내 팀" 식별 자체는
+// 이 탭에서 실제로 제출하기 전까진 비어있다 (다른 탭의 팀이 새 탭에 흘러들지 않게).
+const initialTeam =
+  sessionStorage.getItem(MY_TEAM_KEY) || localStorage.getItem(MY_TEAM_KEY);
+if (initialTeam) teamInput.value = initialTeam;
+
+const initialColor =
+  sessionStorage.getItem(MY_COLOR_KEY) || localStorage.getItem(MY_COLOR_KEY);
+if (initialColor) teamColorInput.value = initialColor;
 
 // 한글 IME 조합 중에는 Enter를 무시 (조합 미완성 상태로 제출되는 것 방지)
 wordInput.addEventListener("keydown", (e) => {
@@ -9,6 +25,23 @@ wordInput.addEventListener("keydown", (e) => {
     sendGuess();
   }
 });
+
+// "내 팀" = 이 탭에서 마지막으로 제출한 팀 (sessionStorage 라 탭별 격리).
+// 입력란을 단순히 바꾸는 것만으론 바뀌지 않음 — 같은 브라우저 다른 탭의
+// 다른 팀이 흘러들거나, 오타로 잠깐 바뀐 값이 하이라이트에 반영되는 걸 막기 위함.
+function getMyTeam() {
+  return (sessionStorage.getItem(MY_TEAM_KEY) || "").trim();
+}
+
+// rank/is_answer 기반으로 막대 색상 결정 (가까울수록 초록, 멀수록 빨강)
+function barColorFor(row) {
+  if (row.is_answer) return "var(--accent)";
+  if (!row.rank || row.rank > 1000) return "var(--border-input)";
+  // rank 1 → t=1 (초록 hue 130), rank 1000 → t=0 (빨강 hue 0)
+  const t = 1 - (row.rank - 1) / 999;
+  const hue = Math.round(t * 130);
+  return `hsl(${hue}, 70%, 48%)`;
+}
 
 document.getElementById("final-close").addEventListener("click", () => {
   document.getElementById("final-overlay").style.display = "none";
@@ -31,6 +64,11 @@ async function sendGuess() {
 
   if (!team) return showLatest("팀 이름을 먼저 입력해주세요.", "error");
   if (!word) return showLatest("단어를 입력해주세요.", "error");
+
+  sessionStorage.setItem(MY_TEAM_KEY, team);
+  localStorage.setItem(MY_TEAM_KEY, team);
+  sessionStorage.setItem(MY_COLOR_KEY, team_color);
+  localStorage.setItem(MY_COLOR_KEY, team_color);
 
   try {
     const res = await fetch("/guess", {
@@ -114,9 +152,11 @@ async function loadBoard() {
 function renderCurrentRound(rows, roundNo) {
   const tbody = document.getElementById("tbody-current");
   tbody.innerHTML = "";
+  const myTeam = getMyTeam();
 
   rows.forEach((row, idx) => {
     const tr = document.createElement("tr");
+    if (myTeam && row.team === myTeam) tr.classList.add("row-mine");
 
     const tdRank = document.createElement("td");
     tdRank.textContent = idx + 1;
@@ -162,6 +202,7 @@ function renderCurrentRound(rows, roundNo) {
       pct = Math.max(5, ((1000 - row.rank + 1) / 1000) * 100);
     }
     fill.style.width = pct + "%";
+    fill.style.background = barColorFor(row);
 
     box.appendChild(fill);
     tdBar.appendChild(box);
@@ -201,6 +242,7 @@ function formatRank(row) {
 function renderPastRounds(rounds, currentRound) {
   const container = document.getElementById("past-all");
   container.innerHTML = "";
+  const myTeam = getMyTeam();
 
   // 최신 라운드를 위로 (역순)
   let any = false;
@@ -237,6 +279,7 @@ function renderPastRounds(rounds, currentRound) {
     const tbody = document.createElement("tbody");
     list.forEach((row, idx) => {
       const tr = document.createElement("tr");
+      if (myTeam && row.team === myTeam) tr.classList.add("row-mine");
 
       const tdRank = document.createElement("td");
       tdRank.textContent = idx + 1;
