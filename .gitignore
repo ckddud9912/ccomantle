@@ -177,3 +177,6 @@ pyrightconfig.json
 /data
 # macOS
 .DS_Store
+
+# Claude 전용 인수인계 메모 (커밋하지 않음)
+handoff.md
