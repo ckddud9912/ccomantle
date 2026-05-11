@@ -42,6 +42,33 @@ async function setAnswer() {
 }
 
 async function changeRound(round) {
+  // 앞으로 진행할 때만 참여 팀 검사. 1라운드 베이스라인 팀들이 떠나는
+  // 라운드에 모두 참여했는지 확인하고, 빠진 팀이 있으면 confirm.
+  try {
+    const board = await (await fetch("/leaderboard")).json();
+    const currentRound = board.current_round;
+    const rounds = board.rounds || {};
+
+    if (round > currentRound) {
+      const baseline = new Set((rounds["1"] || []).map((s) => s.team));
+      const leaving = new Set(
+        (rounds[String(currentRound)] || []).map((s) => s.team)
+      );
+      const missing = [...baseline].filter((t) => !leaving.has(t));
+
+      if (baseline.size > 0 && missing.length > 0) {
+        const msg =
+          `${currentRound}라운드에 참여하지 않은 팀: ${missing.join(", ")}\n` +
+          `(1라운드 기준 ${baseline.size}팀 중 ${baseline.size - missing.length}팀만 참여)\n\n` +
+          `모든 팀이 참여하지 않았습니다. 다음 라운드로 넘어가시겠습니까?`;
+        if (!confirm(msg)) return;
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    // 검사 단계에서 실패해도 라운드 변경 자체는 진행 (admin 의도가 우선)
+  }
+
   try {
     const res = await fetch("/set_round", {
       method: "POST",
