@@ -131,14 +131,22 @@ def parse_nng(mecab_dir: Path) -> dict[str, int]:
 # ─────────────────────────────────────────────────────────────────
 
 def load_ccomantle_dict() -> set[str]:
-    """data/words_50000.json — ccomantle 의 현재 사전."""
-    path = DATA_DIR / "words_50000.json"
+    """ccomantle 의 실제 사전 — game.py 가 로드하는 embedding_dictionary_e5.json 의 키.
+
+    words_*.json 은 빌드 input 일 뿐 게임이 직접 안 봄. expand_dict.py 같은 작업으로
+    임베딩 JSON 만 갱신되고 words_*.json 이 옛 상태로 남는 경우가 있어서, 실제
+    게임 사전 (= embedding dict 의 키) 을 진단 기준으로 사용.
+    """
+    path = DATA_DIR / "embedding_dictionary_e5.json"
     if not path.exists():
         raise FileNotFoundError(
-            f"ccomantle 사전 없음: {path}\n"
-            f"먼저 python src/make_words_from_vec.py 로 생성하거나 HF 에서 받아두세요."
+            f"ccomantle 임베딩 사전 없음: {path}\n"
+            f"먼저 python src/E5_embedding_ver2.py 로 생성하거나 HF 에서 받아두세요."
         )
-    return set(json.loads(path.read_text(encoding="utf-8")))
+    # 키만 필요 (벡터는 read 만 해서 메모리 낭비 — orjson 으로 빠르게)
+    with open(path, "rb") as f:
+        emb_dict = json.loads(f.read())
+    return set(emb_dict.keys())
 
 
 def filter_rejection_reason(word: str) -> str:

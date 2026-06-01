@@ -1,5 +1,65 @@
 # Refactoring Changelog
 
+## [17번] 사전 어휘 보강 — 누락 한국어 명사 5000개 추가 (50k → 55k) (2026-06-02)
+
+### 배경
+[15번] 의 진단 결과 누락 단어 5000개 후보 식별. [16번] 의 필터 수정만으로는 데이터 자체 (FastText 50k cap) 한계 해소 불가 → 직접 보강 트랙. FastText `.vec` 재다운로드 없이 ccomantle 사전에 누락 명사 추가.
+
+### 변경 내용
+
+**1. 신규 도구 — [`tools/dict_quality/expand_dict.py`](../tools/dict_quality/expand_dict.py)**
+- `missing_words_candidates.json` 의 top N (default 5000) 단어 추출
+- 기존 임베딩과 중복 제거
+- 새 단어만 multilingual-e5-large 로 E5 임베딩 생성 (~17초, MPS)
+- 기존 50k scaled 분포 보존 (mean-center/scale 재실행 X)
+- 자동 백업 → `data/embedding_dictionary_e5.backup_*.json`
+- `--dry-run` 옵션
+- 의존성: `requirements-dev.txt` (torch + transformers + tqdm)
+
+**2. coverage_check.py 수정** — 실제 게임 사전을 측정 기준으로
+- 옛: `data/words_50000.json` (빌드 input) 을 봤음
+- 새: `data/embedding_dictionary_e5.json` (게임이 실제 로드) 의 키를 봄
+- expand 같은 작업으로 임베딩 JSON 만 갱신되면 진단도 자동 반영됨
+
+**3. 실측 효과**
+- **Coverage**: 4.81% → 7.25% (교집합 9,876 → 14,876)
+- **누락**: 195,393 → 190,393 (정확히 5,000 감소)
+- 게임 테스트 (정답 "사과", `sim_top1000_raw=0.2053`):
+  - 옛 1글자 명사 "끝" → 0.441 (이전 입력 자체 거부됨)
+  - 옛 게/히 끝 명사 "무게" → 0.430
+  - 옛 흔한 명사 "큰일" → 0.327
+  - "사전에 없는 단어" 에러 0건
+  - 옛 단어 "배"·"주스"·"빨강" 의 점수 분포 보존됨
+
+### 설계 결정 — distribution 보존 (mean-center/scale 재실행 안 함)
+
+처음에는 머지 후 `scale_embeddings` 재실행을 시도했으나 점수가 모두 0 으로 망가짐. 원인:
+- 기존 50k 가 이미 mean-centered + scaled 임베딩
+- mean-centering 한 번 더 적용 → 기존 단어들의 cosine 분포 압축 → 다수가 음수/0 근처
+- [game.py:18-23](../src/core/game.py#L18-L23) 의 `_scale_scalar` 가 `x <= 0` 이면 0 반환
+
+해결: scale 재실행 step 제거. 기존 50k scaled 그대로 + 새 5k 는 E5 raw (unit-norm) 그대로 추가. game.py 의 동적 `sim_alpha` (매 정답마다 1000위=0.63 으로 재계산) 가 distribution 차이를 흡수 → 옛 단어 점수 보존 + 새 단어도 합리적 점수.
+
+### 다음 단계 — HF Hub 업로드 (운영자 작업)
+현재 git 추적되는 코드만 PR 에 포함. 실제 임베딩 JSON 은 `/data` 가 gitignored 라 운영자가 HF 에 업로드:
+```bash
+huggingface-cli upload leo4study/ccomantle-embeddings \
+  ./data/embedding_dictionary_e5.json --repo-type dataset
+```
+이게 끝나면 도커/다른 사용자도 새 사전 사용 가능.
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `tools/dict_quality/expand_dict.py` (신규) | 어휘 보강 도구 |
+| `tools/dict_quality/coverage_check.py` | 실제 게임 사전(`embedding_dictionary_e5.json`) 을 측정 기준으로 |
+| `docs/CHANGELOG.md` | 본 항목 |
+
+### API 변경
+없음. 사전 데이터 (`/data` 하위) 만 변동. game.py / endpoints 변경 X.
+
+---
+
 ## [16번] 사전 추출 필터 결함 수정 — 1글자 명사 허용 + 광범위 부사 필터 제거 (2026-06-01)
 
 ### 배경
