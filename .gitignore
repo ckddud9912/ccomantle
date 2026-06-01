@@ -180,3 +180,6 @@ pyrightconfig.json
 
 # Claude 전용 인수인계 메모 (커밋하지 않음)
 handoff.md
+
+# 외부 reference 사전 캐시 (다운로드만, 코드 재현 가능)
+tools/dict_quality/refs/

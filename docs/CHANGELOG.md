@@ -1,5 +1,60 @@
 # Refactoring Changelog
 
+## [15번] 사전 품질 진단 — 누락 단어 탐지 인프라 + 평가 방법론 doc (2026-06-01)
+
+### 배경
+사용자가 게임 플레이 중 "사전에 없는 단어" 거부를 자주 겪는다는 통증 보고. (주)애나 정렬 평가 트랙의 첫 작업으로, ccomantle 임베딩 사전의 coverage 를 정량 진단하고 어떤 한국어 명사가 누락됐는지 식별하는 인프라 구축.
+
+### 변경 내용
+
+**1. 신규 평가 방법론 doc — [`docs/features/05_evaluation_methodology.md`](features/05_evaluation_methodology.md)**
+- §0 현재 평가 / 점수 계산 흐름 (코드 위치 명시: `make_words_from_vec.py` 필터 / `game.py` sim_alpha / `embeddings.py`)
+- **§1 누락 단어 탐지 ★** (본 PR 본진)
+  - 문제 정의 + 4 가설 (cap / 활용형 점유 / 필터 과잉 / 외래어 누락)
+  - reference dict 5 후보 비교 → **mecab-ko-dic NNG.csv raw 단독** 결정 (의존성 0, POS 분리 무료, 향후 확장 가능)
+  - NNG.csv 행 구조 + KoNLPy 와의 관계 설명
+  - 측정 지표 4종 (coverage / missing count / top-K / filter breakdown)
+  - 우선순위 산정 공식
+  - 산출물 명세
+  - 실측 결과 (§1.7)
+  - 다음 단계 3 트랙 (필터 수정 / 어휘 보강 / 게임 로그)
+- §2-5 placeholder (활용형 클러스터 / intrinsic eval / sim 보정 / 게임 로그)
+
+**2. 신규 진단 도구 — [`tools/dict_quality/coverage_check.py`](../tools/dict_quality/coverage_check.py)**
+- mecab-ko-dic 2.1.1-20180720 자동 다운로드 (47.5MB, 첫 실행만)
+- `NNG.csv` 파싱 (UTF-8 + EUC-KR 폴백)
+- ccomantle 사전과 비교 + 필터 거부 원인 분류
+- 산출: `data/quality_report.json` + `data/missing_words_candidates.json` (top 5000)
+- 의존성 0 (urllib + tarfile + json 표준 라이브러리만)
+
+**3. 결정적 발견 (실측)**
+- Coverage 4.81% (mecab NNG 205,269 중 9,876 만 ccomantle 에 있음)
+- **finding 1**: 1글자 명사 990개 누락 ("끝"·"꿈"·"봄"·"눈"·"값" 등 흔한 명사) — 현 `is_valid_word` 의 길이≥2 제약 때문
+- **finding 2**: "게/히" 부사 필터 (`ADVERB_PATTERN`) 가 명사도 같이 잡음 — "가게"·"무게"·"모기" 등 314개
+- **finding 3**: 진짜 흔한 명사 "학년도"·"큰일" 도 누락 — FastText 50k cap 또는 단어 분리 이슈
+- 압도적 다수 누락 (98.4%) 은 cap/FastText 부재 원인
+
+**4. .gitignore 갱신**
+- `tools/dict_quality/refs/` 추가 (다운로드한 mecab tarball + 압축 해제분)
+
+### 다음 PR 권장 순서
+1. **`feat/dict-filter-fix`** (가장 작은, 가장 큰 효과 추정) — finding 1·2 직접 해소 (길이≥1, 부사 필터 정밀화 또는 제거)
+2. **`feat/dict-expand-coverage`** — `missing_words_candidates.json` 기반 어휘 보강 + cap 확장
+3. **`feat/dict-game-log-rejected`** (선택) — 게임 로그 기반 실측 검증
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `docs/features/05_evaluation_methodology.md` (신규, 274+ 줄) | 평가 방법론 + §1 실측 결과 |
+| `tools/dict_quality/coverage_check.py` (신규) | 진단 도구 |
+| `.gitignore` | refs/ 캐시 제외 |
+| `docs/CHANGELOG.md` | 본 항목 |
+
+### API 변경
+없음. 진단 단계, 코드/엔드포인트 변경 X.
+
+---
+
 ## [14번] 라운드 진행 시 참여 팀 누락 검사 (2026-05-10)
 
 ### 배경
