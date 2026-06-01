@@ -22,14 +22,14 @@ license: mit
 - 📱 **QR 모바일 즉시 참가** — 별도 앱 설치 X, 브라우저만으로
 - 👥 **실시간 리더보드** — 팀명·팀색 입력, 내 팀 행 하이라이트, 막대 색상 그라디언트 (가까울수록 초록)
 - 🛠 **운영자 페이지** — 정답 설정 · 라운드 제어 · 경기 종료 · 게임 재시작 · 참여 팀 누락 검사 · top1000 단어 조회
-- 🔬 **한국어 5만 단어 사전계산 임베딩** (multilingual-e5-large)
+- 🔬 **한국어 약 55,000 단어 사전계산 임베딩** (multilingual-e5-large + mecab-ko-dic NNG 어휘 보강)
 - 🐳 **`docker compose up` 한 줄 실행** + `.env` 자동 로드 (도커/비도커 양쪽)
 
 ---
 
 ## 🚀 빠른 시작
 
-> **📦 임베딩 파일이 필요합니다** (한국어 5만 단어 사전계산 벡터, 수백 MB).
+> **📦 임베딩 파일이 필요합니다** (한국어 약 55,000 단어 사전계산 벡터, 수백 MB).
 > 아래 두 가지 경로 중 하나로 받으세요. 둘 다 안 한 상태로 실행하면 서버는 뜨지만 게임 라우트가 503을 반환합니다 (`/health`로 확인 가능).
 
 ### 옵션 A: 도커로 실행 (권장)
@@ -112,7 +112,7 @@ http://localhost:7860 으로 접속.
 |---|---|
 | Backend | FastAPI + asyncio (단일 워커, asyncio.Lock 으로 동시 제출 직렬화) |
 | Frontend | 정적 HTML/CSS/JS (vanilla, 모바일 우선) |
-| 임베딩 | multilingual-e5-large 한국어 5만 단어 사전계산 (L2 normalized, float32) |
+| 임베딩 | multilingual-e5-large 한국어 약 55,000 단어 사전계산 (L2 normalized, float32). FastText 50k 기반 + mecab-ko-dic NNG 누락 명사 5,000 보강 |
 | 인프라 | Docker Compose + `.env` 자동 로드 + HF Hub 자동 다운로드 + `/health` graceful startup |
 
 자세한 구조는 [docs/features/](docs/features/) 참고.
@@ -140,17 +140,21 @@ pip install -r requirements-dev.txt
 # 1. FastText 한국어 .vec 파일 다운로드 (1.6GB)
 #    https://fasttext.cc/docs/en/crawl-vectors.html
 
-# 2. 단어 추출 (5만 개)
-export FASTTEXT_VEC_PATH=/path/to/cc.ko.300.vec
+# 2. 단어 추출 (FastText 상위 50,000)
+export FASTTEXT_VEC_PATH=/실제/받은/경로/cc.ko.300.vec   # ← 실제 경로로 교체
 python src/make_words_from_vec.py
 
-# 3. E5 임베딩 생성 (GPU 권장, CPU 시 30분~)
+# 3. E5 임베딩 생성 (Apple Silicon MPS / NVIDIA CUDA 자동, CPU 시 30분~)
 python src/E5_embedding_ver2.py
+
+# 4. (선택) mecab-ko-dic 누락 명사 5,000 보강 — FastText 안 받아도 됨
+python tools/dict_quality/coverage_check.py   # 누락 단어 후보 식별
+python tools/dict_quality/expand_dict.py      # 새 단어만 임베딩 + 머지 (~17초, MPS)
 ```
 
-자세한 내용은 [docs/features/04_preprocessing.md](docs/features/04_preprocessing.md) 참고.
+자세한 내용은 [docs/features/04_preprocessing.md](docs/features/04_preprocessing.md), 평가 방법론은 [docs/features/05_evaluation_methodology.md](docs/features/05_evaluation_methodology.md) 참고.
 
-> ⚠️ 현재 `data/embedding_dictionary_e5.json` 의 5만 단어는 ko-FastText `.vec` 에서 추출한 것으로, **활용형이 다수 포함**돼 있습니다 (예: "있다", "있는", "있습니다"). 게임에서 어색할 수 있고, 향후 명사·기본형 필터링 + 한국어 특화 임베딩(KoE5/KURE) 비교가 개선 트랙으로 잡혀 있습니다.
+> 🟢 **사전 품질 진행 상황**: ko-FastText 50,000 단어에서 시작 → mecab-ko-dic NNG 와의 coverage 측정 (4.81%) → 흔한 누락 명사 5,000개 보강 (coverage 7.25%). 1글자 명사("끝"·"꿈") + 부사 패턴에 잘못 잡혔던 명사("가게"·"무게") 다수 회복. 활용형 중복 정리·한국어 특화 임베딩(KoE5/KURE) 교체는 다음 트랙.
 
 ---
 
