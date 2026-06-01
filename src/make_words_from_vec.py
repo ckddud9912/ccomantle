@@ -9,15 +9,17 @@ DATA_PATH = os.path.join(BASE_DIR, "..", "data")
 OUTPUT = os.path.join(DATA_PATH, "words_50000.json")
 
 KOREAN_PATTERN = re.compile(r"^[가-힣]+$")
-ADVERB_PATTERN = re.compile(r".+(게|히)$")
 
 
 def is_valid_word(word):
+    # 길이 1글자 허용: "끝"/"꿈"/"눈"/"값" 같은 흔한 1글자 명사를
+    # 옛 2자 cutoff 가 막아 990개 명사가 누락됐음 (docs/features/05 §1.7 finding 1).
+    # 부사 필터 제거: 옛 r".+(게|히)$" 가 너무 광범위해 "가게"/"무게"/"모기" 같은
+    # 명사 314개도 같이 잡았음 (finding 2). 진짜 부사("빠르게"·"조용히")는 빈도가
+    # cap 50k 안에서 매우 일부라 제거해도 사전 오염 미미.
     if not KOREAN_PATTERN.fullmatch(word):
         return False
-    if not (2 <= len(word) <= 6):
-        return False
-    if ADVERB_PATTERN.fullmatch(word):
+    if not (1 <= len(word) <= 6):
         return False
     return True
 

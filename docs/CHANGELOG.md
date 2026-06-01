@@ -1,5 +1,50 @@
 # Refactoring Changelog
 
+## [16번] 사전 추출 필터 결함 수정 — 1글자 명사 허용 + 광범위 부사 필터 제거 (2026-06-01)
+
+### 배경
+[15번] 의 진단 결과 ([`docs/features/05_evaluation_methodology.md`](features/05_evaluation_methodology.md#L188) §1.7) finding 1·2 에서 발견된 `is_valid_word` 의 두 결함을 직접 수정.
+
+### 변경 내용
+
+**[`src/make_words_from_vec.py`](../src/make_words_from_vec.py) 의 `is_valid_word` 두 조건 변경**:
+
+1. **길이 cutoff 완화**: `2 <= len <= 6` → `1 <= len <= 6`
+   - finding 1: "끝"·"꿈"·"눈"·"값"·"봄"·"날"·"칸"·"쌀" 등 흔한 1글자 명사 약 990개 누락 (mecab NNG 기준)
+   - 게임에서 흔하게 떠올리는 1글자 명사가 거부되는 통증 해소
+
+2. **`ADVERB_PATTERN` 제거**: 옛 `r".+(게|히)$"` 가 너무 광범위
+   - finding 2: 명사 "가게"·"무게"·"모기"·"공기"·"인사" 등 약 314개를 부사로 오인 거부
+   - 진짜 부사 ("빠르게"·"조용히") 는 FastText 빈도 cap 50k 자체로 대부분 거름. 일부 들어와도 사전 오염 미미
+   - 더 정밀한 필터 (mecab NNG 화이트리스트) 는 src 의존성 부담으로 보류. 필요 시 다음 PR
+
+### 효과 발휘 조건
+본 변경은 **사전 재추출 시 효과 발휘**. 이미 생성된 `data/words_50000.json` / `data/embedding_dictionary_e5.json` 자체는 변동 없음. 효과 보려면:
+
+```bash
+# FastText .vec 가 있는 환경에서
+export FASTTEXT_VEC_PATH=/path/to/cc.ko.300.vec
+python src/make_words_from_vec.py     # 새 필터로 50,000 단어 재추출
+python src/E5_embedding_ver2.py        # 임베딩 재생성
+# 그 후 data/embedding_dictionary_e5.json 을 HF dataset 에 재업로드
+```
+
+→ 추출 + 임베딩 재생성 + HF 업로드는 운영 사이드 작업. 환경 갖춰지면 진행.
+
+### 측정 (다음)
+사전 재생성 후 [`tools/dict_quality/coverage_check.py`](../tools/dict_quality/coverage_check.py) 재실행 → coverage 4.81% 대비 변화 확인. [15번] §1.7 의 baseline 과 비교.
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `src/make_words_from_vec.py` | `is_valid_word` 두 조건 (3줄 줄음) + 변경 의도 주석 |
+| `docs/CHANGELOG.md` | 본 항목 |
+
+### API 변경
+없음. 추출 도구의 필터만 변경.
+
+---
+
 ## [15번] 사전 품질 진단 — 누락 단어 탐지 인프라 + 평가 방법론 doc (2026-06-01)
 
 ### 배경
