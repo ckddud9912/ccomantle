@@ -1,5 +1,54 @@
 # Refactoring Changelog
 
+## [19번] 임베딩 의미 정합성 탐색 — ipynb scaffold + 결정적 발견 (2026-06-02)
+
+### 배경
+PR #15~#18 의 사전 어휘 보강이 사용자 통증 일부 해소했지만, 사용자가 정작 본질로 짚은 것은 **"임베딩 유사도 점수가 의미적으로 이해 안 됨"** (정답 "사과" 에 과일이 안 가깝게 나옴 등). 이건 사전 크기 문제 아닌 **임베딩 모델 자체의 한국어 의미 처리 품질** 영역. 탐색 단계로 ipynb 도입.
+
+### 변경 내용
+
+**1. 신규 [`notebooks/embedding_quality_exploration.ipynb`](../notebooks/embedding_quality_exploration.ipynb)**
+- 7개 섹션 scaffold: 임베딩 로드 / helper / 단일 정답 top N / 다양한 정답 일괄 비교 / 카테고리 cross-check / 분포 시각화 / 종합 발견
+- `ANSWER` 변수 바꿔가며 spot-check 하는 탐색 결 도구
+- 향후 KoE5/KURE 등 다른 임베딩 비교 시 그대로 재사용
+
+**2. 신규 [`notebooks/findings_2026-06-02.md`](../notebooks/findings_2026-06-02.md)**
+- 첫 실행 결과 발견 5가지 정리 + 근본 원인 진단 + 다음 PR 결정
+- 향후 동일 탐색 반복 시 `findings_YYYY-MM-DD.md` 누적
+
+### 결정적 발견
+
+1. **임베딩이 의미보다 글자 패턴에 강하게 반응** — 정답 "사과" top 50 의 다수가 "-과" 끝 단어 (제과·인과·여과·안과·내과·외과 등). 의미 무관한데 마지막 글자 같으면 cosine 높음
+2. **자동차가 배보다 사과에 더 가깝다** — `사과↔배=0.1239`, `사과↔자동차=0.1668`. 의미 정합성 깨짐
+3. **과일 cluster 작동 X** — 정답 "사과" 에서 배 3,888위, 포도 737위, 딸기 2,316위 등. 도메인 cluster 완전 fail
+4. **단어별 분포 들쭉날쭉** — "강아지·학교·사랑" 은 의미 cluster 정상 작동 (고양이·스쿨·로맨스 등 잘 묶임). 반면 "사과·배·차·집" 은 글자 패턴 cluster. **같은 모델 일관성 없음**
+5. **활용형이 top 차지** — 조사 활용형 ("사과와"·"사과는") 이 top 5 안
+
+→ 본질 원인: **multilingual-e5-large 가 한국어 의미 처리에 약함**. 한국어 특화 모델 (KoE5/KURE) 필요.
+
+### 다음 PR
+
+**★ `feat/embedding-model-comparison`** (강력 추천) — 본질 해결 트랙
+- 같은 60k 단어에 KoE5 임베딩 재생성 → ipynb 동일 spot-check
+- KURE-v1 추가 검토
+- 한국어 특화 모델이 글자 패턴 cluster 해소하는지 검증
+
+보류 트랙:
+- `feat/dict-cleanup-activations` — 표면적 효과만, 모델 교체 후 검토
+- `feat/sim-calibration` — distribution 자체는 정상 (mean=0.0040)
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `notebooks/embedding_quality_exploration.ipynb` (신규) | 탐색 도구 scaffold |
+| `notebooks/findings_2026-06-02.md` (신규) | 첫 발견 누적 doc |
+| `docs/CHANGELOG.md` | 본 항목 |
+
+### API 변경
+없음. 탐색 단계, 코드/사전 변경 X.
+
+---
+
 ## [18번] 우리말샘·ko 위키 diff source 추가 + 우리말샘 명사 5,000 보강 (55k → 60k) (2026-06-02)
 
 ### 배경
