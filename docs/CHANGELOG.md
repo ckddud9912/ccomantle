@@ -1,5 +1,80 @@
 # Refactoring Changelog
 
+## [20번] 임베딩 모델 교체 — multilingual-e5-large → KoE5 (한국어 의미 cluster 정상화) (2026-06-02)
+
+### 배경
+PR #19 (`findings_2026-06-02.md`) 의 결정적 발견 — multilingual-e5-large 가 한국어 의미보다 글자 패턴 cluster — 의 본질 해결. 같은 60k 단어에 한국어 특화 두 모델 (KoE5, KURE) 임베딩 재생성 → spot-check 비교 → 게임에 적합한 모델 선정.
+
+### 변경 내용
+
+**1. `tools/embedding_eval/build_alt_embeddings.py` (신규)**
+- 임의 HuggingFace 임베딩 모델로 ccomantle 60k 단어 임베딩 재생성
+- `--model`, `--output`, `--prefix` 옵션 (raw, L2 norm 만, scaling X)
+- MPS 자동 가속 — KoE5 3분 8초, KURE 2분 24초
+
+**2. `notebooks/embedding_model_comparison.ipynb` (신규)**
+- 두~세 모델 side-by-side 비교
+- §3 결정적 pair / §4 top N 비교 / §5 카테고리 cross-check
+
+**3. `notebooks/findings_2026-06-02_3model_comparison.md` (신규)**
+- 3-모델 비교 분석 + 결정 근거
+
+**4. `tools/embedding_eval/apply_scaling_and_swap.py` (신규)**
+- 대안 raw 임베딩에 scaling 적용 + 메인 사전 swap (백업 자동)
+- 단 본 PR 의 KoE5 case 에선 scaling 실패 (SCALE_RANGE 최소값으로 떨어짐, diff 0.43) → scaling 건너뛰고 raw 그대로 swap
+
+**5. 메인 사전 swap — multilingual-e5-large → KoE5 raw**
+- 백업: `data/embedding_dictionary_e5.backup_swap_*.json`
+- 메인: `data/embedding_dictionary_e5.json` 을 KoE5 raw 로 교체
+- game.py 의 동적 `sim_alpha` 가 raw 분포 자동 흡수 (PR #17 의 검증된 패턴)
+
+### 모델 비교 결과 요약
+
+| 측면 | e5 (옛) | KoE5 (현 선정) | KURE (보류) |
+|---|---|---|---|
+| 글자 패턴 cluster | ⚠️ 심함 | 일부 잔존 | 사라짐 |
+| **과일 cross-check** (정답 "사과") | bad | **best** | worst |
+| 사과↔자동차 specific fail | ⚠️ | ⚠️ | ✓ 풀림 |
+| 동음이의어 처리 | 한 의미 | 한 의미 | 다중 의미 (게임엔 ⚠️) |
+
+**KURE 보류 이유**: 의미적으로는 가장 정확하지만 "사과 → 용서·죄송" 처럼 동음이의어를 다 cluster 해서 단일 정답 게임에 부적합. 과일 cross-check rank 가 e5 보다도 나쁨 (배 17,708위 vs e5 3,888위).
+
+### 게임 테스트 실측 (정답 "사과")
+
+- `sim_top1000_raw=0.6653, SIM_ALPHA=1.1338` (e5: 0.2053 / 0.2918 → 분포가 자연스러워짐)
+- top 6: 수박 0.664 / 딸기 0.643 / 포도 0.633 / 배 0.608 / 끝 0.561 / 꿈 0.521
+- **과일 4개가 top 4 차지** — e5 에선 배만 1위 (다른 과일들 rank 1000+ 밖) → 정상화
+- "끝"·"꿈" 같은 옛 추가 단어도 정상 작동
+
+### 파인튜닝 결정
+**X**. KoE5 가 사용자 통증 (의미 cluster) 의 80% 해결. 남은 fail (사과↔자동차 같은 edge case) 은 multilingual-e5 base 의 본질 한계 — fine-tuning 으로도 보장 안 됨. 시간 (며칠~주) 대비 효과 작음. 대신 `feat/sim-calibration` / `feat/game-log-rejected` 같은 다른 트랙으로 보완.
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `tools/embedding_eval/build_alt_embeddings.py` (신규) | 임의 모델 임베딩 생성 |
+| `tools/embedding_eval/apply_scaling_and_swap.py` (신규) | scaling + swap 도구 (이번 case 엔 scaling 실패, swap 만 활용) |
+| `notebooks/embedding_model_comparison.ipynb` (신규) | 3-way 비교 ipynb |
+| `notebooks/findings_2026-06-02_3model_comparison.md` (신규) | 비교 결과 + 결정 근거 |
+| `docs/CHANGELOG.md` | 본 항목 |
+
+### API 변경
+없음. 임베딩 사전 (gitignored) 만 변동. game.py 의 `sim_alpha` 동적 보정이 모델 교체 흡수.
+
+### 다음 단계 (운영자, PR 머지 후)
+HF Hub 재업로드:
+```bash
+hf upload leo4study/ccomantle-embeddings \
+  ./data/embedding_dictionary_e5.json --repo-type dataset
+```
+
+### 미래 트랙 (선택)
+- `feat/sim-calibration` — 남은 specific fail 영향 줄이는 점수 보정 강화
+- `feat/dict-cleanup-activations` — 활용형 (조사) 정리. KoE5 의 top 차지 패턴 일부 해소
+- (장기) KURE 적합 시나리오 — 동음이의어 명확히 처리하는 게임 모드 추가 시 후보
+
+---
+
 ## [19번] 임베딩 의미 정합성 탐색 — ipynb scaffold + 결정적 발견 (2026-06-02)
 
 ### 배경
