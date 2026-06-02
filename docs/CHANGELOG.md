@@ -1,5 +1,77 @@
 # Refactoring Changelog
 
+## [18번] 우리말샘·ko 위키 diff source 추가 + 우리말샘 명사 5,000 보강 (55k → 60k) (2026-06-02)
+
+### 배경
+[17번] 의 mecab-ko-dic (2018, 8년 묵음) 기반 보강이 사용자 진짜 통증 (동시대 일반 명사 누락) 과 결이 안 맞다는 push-back. 진짜 한국어 사전 source 를 도입해서 reference 다양화 + 누락 진단·보강 인프라 확장.
+
+### 변경 내용
+
+**1. 신규 — `tools/dict_quality/diff_kowiki.py`**
+- 한국어 위키피디아 latest titles dump (ns0 articles) 자동 다운로드 (~8MB gz)
+- 한글-only / 길이 1-6 필터 → 492,561 titles
+- mecab NNG cost cross-ref (이전 PR 다운로드 재사용)
+- ccomantle 사전과 diff → 누락 분류 (mecab+kowiki 교집합 vs ko 위키 only)
+- 산출: `data/quality_report_kowiki.json` + `data/missing_words_candidates_kowiki.json`
+- **결과**: coverage 3.65%, 누락 474k. 단 "ko 위키 only" 435k 의 대부분은 일본 지명/인명 (가가린·가가미이시·가가와현 등) — 사전 추가 부적합. **"mecab+kowiki 교집합 39k" 만 유의미**
+
+**2. 신규 — `tools/dict_quality/diff_urimalsaem.py`**
+- 국립국어원 우리말샘 bulk dump (25 chunk × 50k = ~1.2M entry) 처리
+- 핵심 필터: `senseinfo.type == "일반어"` (방언·옛말·북한어 제외) + 표제어 하이픈 제거 ("겁-쟁이" → "겁쟁이")
+- POS 별 set 분류 (명사·동사·형용사·부사·기타)
+- mecab NNG cost cross-ref (명사만)
+- 산출: MD 리포트 (사용자 읽기용) + JSON (머신 읽기용) + POS 별 후보 4개 파일
+- **결과**: 명사 318k 중 ccomantle 교집합 18,680 → coverage 5.87%. mecab+우리말샘 교집합 명사 171,829
+
+**3. `tools/dict_quality/expand_dict.py` 옵션화**
+- 옛: `data/missing_words_candidates.json` 하드코딩
+- 새: `--source <path>` + `--filter-source <value>` 옵션
+- 우리말샘·ko 위키·mecab 등 임의 진단 산출 받아 보강 가능
+- 호환: `--source` 미지정 시 옛 path default
+
+**4. 우리말샘 명사 5,000 보강 실행 → 사전 55k → 60k**
+- 명령: `expand_dict.py --source data/missing_words_urimalsaem_nouns.json --filter-source urimalsaem+mecab --top-n 5000`
+- 5,000개 다 신규 (기존 ccomantle 60k 와 중복 0)
+- distribution 보존 (PR #17 의 검증된 방식)
+- 게임 테스트 통과: `sim_top1000_raw=0.2053, SIM_ALPHA=0.2918` (PR #17 와 동일 — 분포 완벽 보존)
+  - 새 단어 "복면" → 0.419 (정답 "사과"). 합리적
+  - 옛 단어 "배" 0.544, "끝" 0.441 — 분포 완전 보존
+
+### 결정한 정책
+
+- **명사 only** 유지 (사용자 결정): 동사·형용사는 추가 X (활용형으로 인한 유사 순위 정렬 어려움 회피)
+- **우리말샘 only 후보는 추가 X**: top 50 보면 가가린/가가미이시/가가와현 같이 일본 지명·전문용어 다수
+- **mecab+우리말샘 교집합** 만 = 양쪽 다 인정된 안전한 어휘
+
+### 알려진 한계 — 다음 PR 후보
+
+mecab cost 가 너무 균질 (top 5,000 = cost 2628-2639) 해서 **실제 사용 빈도와 매칭이 정확하지 않음**. 결과:
+- "자두" (mecab cost 2,665) 가 우리말샘+mecab 정렬에서 **156,099번째** 위치 → top 5,000 으로는 못 잡힘
+- 흔한 과일 중 자두·귤·참외 여전히 누락
+- "복면" (cost 2628) 이 "자두" 보다 흔한가? **No**. mecab cost = 빈도 아님
+
+→ 다음 PR 후보: **`feat/dict-frequency-from-kowiki-body`** — ko 위키 article body 빈도로 정렬. mecab cost 보다 실제 사용 빈도 정확. dump ~500MB, 처리 무거움.
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `tools/dict_quality/diff_kowiki.py` (신규) | ko 위키 titles diff |
+| `tools/dict_quality/diff_urimalsaem.py` (신규) | 우리말샘 diff + POS 분류 + MD 리포트 |
+| `tools/dict_quality/expand_dict.py` | `--source`/`--filter-source` 옵션 추가 |
+| `docs/CHANGELOG.md` | 본 항목 |
+
+### API 변경
+없음. 사전 데이터 (`/data` gitignored) + 진단 도구만 변동.
+
+### 다음 단계 (운영자, PR 머지 후)
+HF Hub 재업로드:
+```bash
+hf upload leo4study/ccomantle-embeddings \
+  ./data/embedding_dictionary_e5.json --repo-type dataset
+```
+
+---
+
 ## [17번] 사전 어휘 보강 — 누락 한국어 명사 5000개 추가 (50k → 55k) (2026-06-02)
 
 ### 배경
