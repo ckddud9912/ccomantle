@@ -73,25 +73,56 @@ def load_existing_embeddings(path: Path) -> dict[str, list[float]]:
         return json.load(f)
 
 
-def load_missing_candidates(path: Path, top_n: int) -> list[str]:
-    """missing_words_candidates.json 의 top N 단어 추출."""
+def load_missing_candidates(
+    path: Path,
+    top_n: int,
+    filter_source: str | None = None,
+) -> list[str]:
+    """누락 후보 JSON 의 top N 단어 추출.
+
+    Args:
+        path: 후보 파일 (coverage_check / diff_urimalsaem / diff_kowiki 산출).
+            각 후보는 dict 로 "word" 키 + 선택적 "source"/"cost" 등 필드.
+        top_n: 추출할 단어 수 (path 가 정렬돼 있다 가정).
+        filter_source: "source" 필드 값으로 필터 (예: "urimalsaem+mecab").
+            None 이면 전체 (옛 동작).
+    """
     if not path.exists():
         raise FileNotFoundError(
             f"누락 후보 파일 없음: {path}\n"
-            f"먼저 python tools/dict_quality/coverage_check.py 실행하세요."
+            f"먼저 coverage_check.py / diff_urimalsaem.py / diff_kowiki.py 중 적절한 진단 실행."
         )
     with open(path, encoding="utf-8") as f:
         cands = json.load(f)
+
+    if filter_source:
+        cands = [c for c in cands if c.get("source") == filter_source]
+        print(f"   filter_source='{filter_source}' 적용: {len(cands):,} 후보 남음")
+
     return [c["word"] for c in cands[:top_n]]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="ccomantle 사전 어휘 보강")
     parser.add_argument(
+        "--source",
+        type=Path,
+        default=DATA_DIR / "missing_words_candidates.json",
+        help="누락 후보 JSON (default: mecab 기반 missing_words_candidates.json). "
+             "우리말샘은 data/missing_words_urimalsaem_nouns.json, "
+             "ko 위키는 data/missing_words_candidates_kowiki.json",
+    )
+    parser.add_argument(
+        "--filter-source",
+        type=str,
+        default=None,
+        help="후보의 'source' 필드 값으로 필터 (예: 'urimalsaem+mecab' 으로 mecab 교집합만)",
+    )
+    parser.add_argument(
         "--top-n",
         type=int,
         default=5000,
-        help="missing_words_candidates.json 에서 추가할 단어 수 (default 5000)",
+        help="추가할 단어 수 (default 5000)",
     )
     parser.add_argument(
         "--dry-run",
@@ -105,17 +136,24 @@ def main() -> int:
     print("=" * 60)
 
     embedding_path = DATA_DIR / "embedding_dictionary_e5.json"
-    candidates_path = DATA_DIR / "missing_words_candidates.json"
+    candidates_path = args.source.resolve()  # 상대→절대 (relative_to 호환)
 
     # ─────────────────────────────────────────────────────────
     # 1. 기존 / 후보 로드
     # ─────────────────────────────────────────────────────────
     print("\n[1/5] 기존 사전 + 누락 후보 로드")
+    try:
+        rel = candidates_path.relative_to(REPO_ROOT)
+    except ValueError:
+        rel = candidates_path  # REPO 바깥 경로면 절대 그대로 출력
+    print(f"   source: {rel}")
+    if args.filter_source:
+        print(f"   filter: source=='{args.filter_source}'")
     existing = load_existing_embeddings(embedding_path)
     print(f"   기존 단어: {len(existing):,}")
 
-    candidates = load_missing_candidates(candidates_path, args.top_n)
-    print(f"   누락 후보 (top {args.top_n}): {len(candidates):,}")
+    candidates = load_missing_candidates(candidates_path, args.top_n, args.filter_source)
+    print(f"   누락 후보 (top {args.top_n}, 필터 후): {len(candidates):,}")
 
     # 중복 제거 — candidates 중 이미 existing 에 있으면 skip
     existing_set = set(existing.keys())
