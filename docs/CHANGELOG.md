@@ -1,5 +1,41 @@
 # Refactoring Changelog
 
+## [21번] 임베딩 튜닝 도구 추가 — prefix 실험 + Hybrid concat (보류) (2026-06-03)
+
+### 배경
+PR #21 의 KoE5 교체 후 추가 개선 시도 — prefix 변경 (query/passage/없음) + KoE5+KURE hybrid concat. 도구 작성 + 비교 ipynb 까지 완성했으나 실제 비교는 미실행 (사용자 결정으로 KoE5 그대로 유지, Step 3 storage 최적화 우선).
+
+### 변경 내용
+
+**1. `tools/embedding_eval/build_hybrid_embedding.py` (신규)**
+- 두 임베딩 사전 → hybrid (concat 또는 weighted average)
+- 각각 L2 normalize → 결합 → 다시 L2 normalize
+- 미래 다른 임베딩 결합 실험에도 재사용 가능
+
+**2. `notebooks/embedding_tuning_comparison.ipynb` (신규)**
+- 임의 모델 N개 side-by-side 비교 scaffold
+- §3 결정적 pair / §4 top N / §5 과일 cross-check / §6 강아지·학교 회귀 / §7 결정
+- 비교 미실행 (미래 사용 대비 도구로 박아둠)
+
+### 사전 변경 없음
+- 메인 사전 (`data/embedding_dictionary_e5.json`) 은 PR #21 의 KoE5 raw 그대로 유지
+- 임시 임베딩 사전들 (koe5_noprefix·passage·hybrid_concat·kure 등) 은 작업 후 삭제 (디스크 5GB+ 회수)
+
+### 다음 PR
+**★ `feat/storage-binary-format`** — JSON 1.3GB × 다수 → npy ~250MB (80% 절약) binary 형식 변환. `src/core/embeddings.py` 의 로드 코드 수정 필요. 디스크 관리 측면 큰 효과.
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `tools/embedding_eval/build_hybrid_embedding.py` (신규) | hybrid 임베딩 생성 도구 |
+| `notebooks/embedding_tuning_comparison.ipynb` (신규) | 모델 N-way 비교 scaffold |
+| `docs/CHANGELOG.md` | 본 항목 |
+
+### API 변경
+없음. 도구만 추가.
+
+---
+
 ## [20번] 임베딩 모델 교체 — multilingual-e5-large → KoE5 (한국어 의미 cluster 정상화) (2026-06-02)
 
 ### 배경
