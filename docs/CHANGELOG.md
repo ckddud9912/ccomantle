@@ -1,5 +1,75 @@
 # Refactoring Changelog
 
+## [22번] 임베딩 저장 format JSON → NPZ (1.3GB → 235MB, 82% 절약) (2026-06-03)
+
+### 배경
+PR #15-#22 진행하면서 임베딩 사전이 점차 누적 (multiple 모델·prefix·hybrid 실험). 각 사전 1.3GB JSON × 다수 → 디스크 용량 부족 발생. 본질 원인: JSON 의 number text encoding 비효율 (각 float 20+ chars). binary float32 로 가면 동일 정보, 약 80% 절약.
+
+### 변경 내용
+
+**1. `src/core/embeddings.py` — 확장자 분기 로딩**
+- 옛: JSON 만 지원
+- 새: `.npz` / `.json` 자동 분기. backward compat — 옛 JSON 그대로 작동
+- `_load_json` / `_load_npz` 두 path, `_normalize_and_pack` 공통
+
+**2. `src/app.py` — `.npz` 우선 자동 감지**
+- `EMBEDDING_FILE` env 미설정 시 `_default_embedding_file()` 호출
+- `data/embedding_dictionary_e5.npz` 있으면 우선, 없으면 `.json` fallback
+- 옛 JSON 만 있는 환경도 그대로 작동
+
+**3. `tools/storage/convert_to_npz.py` (신규)**
+- JSON 1.3GB → NPZ ~235MB 변환 (또는 `--compress` 옵션으로 ~150MB)
+- `np.savez(words=object_array, vectors=float32_matrix)` 한 파일
+- 사용 안내·재업로드 명령 같이 출력
+
+### 실측 결과
+```
+source: data/embedding_dictionary_e5.json (1302.5 MB)
+[1/3] JSON 로드 + 파싱 — 60,000 단어, dim 1024, matrix 234.4 MB (raw float32)
+[2/3] NPZ 저장
+[3/3] 결과: data/embedding_dictionary_e5.npz (235.5 MB)
+       절약: 1067.0 MB (81.9% ↓)
+```
+
+게임 로드 검증:
+```
+[INFO] Loading embeddings from .../embedding_dictionary_e5.npz...
+[INFO] Loaded embeddings (60000 words). Ready.
+```
+→ 자동 감지 + 로드 성공. 게임 점수는 동일 (vector data 그대로).
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `src/core/embeddings.py` | `.json` / `.npz` 분기 로드 |
+| `src/app.py` | `.npz` 우선 자동 감지 |
+| `tools/storage/convert_to_npz.py` (신규) | 변환 도구 |
+| `docs/CHANGELOG.md` | 본 항목 |
+
+### API 변경
+없음. 동작 호환.
+
+### 다음 단계 (운영, PR 머지 후)
+```bash
+# 옛 JSON 삭제 (추가 1.3GB 회수)
+rm data/embedding_dictionary_e5.json
+
+# HF 재업로드 (.npz 외부 배포)
+hf upload leo4study/ccomantle-embeddings \
+  ./data/embedding_dictionary_e5.npz --repo-type dataset
+
+# 도커/다른 사용자 환경에서 .npz 사용하려면 env 갱신:
+# EMBEDDING_HF_FILE=embedding_dictionary_e5.npz
+```
+
+### 효과 summary
+- 디스크: 1.3GB → 235MB per 사전 (**82% 절약**)
+- HF 다운로드: 1.37GB → ~250MB (**약 80% 빠름**)
+- 게임 로드 시간: 거의 동일 (JSON parse 대비 binary load 가 약간 더 빠를 수도)
+- 정확도 손실: 0 (float32 그대로)
+
+---
+
 ## [21번] 임베딩 튜닝 — KoE5 prefix 변경 (query: → passage:) + 도구 추가 (2026-06-03)
 
 ### 배경
