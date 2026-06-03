@@ -25,13 +25,22 @@ try:
 except ImportError:
     pass
 
+def _default_embedding_file() -> str:
+    """EMBEDDING_FILE env 미설정 시 default 자동 선택.
+
+    .npz (binary, ~10x smaller) 가 있으면 우선, 없으면 .json fallback.
+    backward compat — 옛 .json 만 있는 환경도 그대로 작동.
+    """
+    npz = os.path.join(DATA_DIR, "embedding_dictionary_e5.npz")
+    if os.path.exists(npz):
+        return npz
+    return os.path.join(DATA_DIR, "embedding_dictionary_e5.json")
+
+
 # 빈 문자열도 "미설정"으로 간주. .env 파일에 EMBEDDING_FILE= 라고만
 # 적혀 있으면 os.environ.get(..., default)가 빈 문자열을 반환하기 때문에
 # `or` 로 fallback 처리해야 한다.
-EMBEDDING_FILE = (
-    os.environ.get("EMBEDDING_FILE")
-    or os.path.join(DATA_DIR, "embedding_dictionary_e5.json")
-)
+EMBEDDING_FILE = os.environ.get("EMBEDDING_FILE") or _default_embedding_file()
 
 
 def _try_hf_download() -> bool:
