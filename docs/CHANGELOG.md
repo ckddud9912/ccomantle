@@ -1,9 +1,9 @@
 # Refactoring Changelog
 
-## [21번] 임베딩 튜닝 도구 추가 — prefix 실험 + Hybrid concat (보류) (2026-06-03)
+## [21번] 임베딩 튜닝 — KoE5 prefix 변경 (query: → passage:) + 도구 추가 (2026-06-03)
 
 ### 배경
-PR #21 의 KoE5 교체 후 추가 개선 시도 — prefix 변경 (query/passage/없음) + KoE5+KURE hybrid concat. 도구 작성 + 비교 ipynb 까지 완성했으나 실제 비교는 미실행 (사용자 결정으로 KoE5 그대로 유지, Step 3 storage 최적화 우선).
+PR #21 의 KoE5 교체 후 추가 개선 시도 — prefix 변경 (query/passage/없음) + KoE5+KURE hybrid concat. 비교 결과 **KoE5 (passage:) 가 과일 cross-check 압도적 best** (top 100 안 3/8 vs 다른 모든 모델 0/8) → swap 진행.
 
 ### 변경 내용
 
@@ -17,9 +17,35 @@ PR #21 의 KoE5 교체 후 추가 개선 시도 — prefix 변경 (query/passage
 - §3 결정적 pair / §4 top N / §5 과일 cross-check / §6 강아지·학교 회귀 / §7 결정
 - 비교 미실행 (미래 사용 대비 도구로 박아둠)
 
-### 사전 변경 없음
-- 메인 사전 (`data/embedding_dictionary_e5.json`) 은 PR #21 의 KoE5 raw 그대로 유지
-- 임시 임베딩 사전들 (koe5_noprefix·passage·hybrid_concat·kure 등) 은 작업 후 삭제 (디스크 5GB+ 회수)
+### 비교 결과 (`embedding_tuning_comparison.ipynb` 실측)
+
+**과일 cross-check** (정답 "사과") — top 100 안 과일 개수:
+
+| 모델 | top 100 / 8 | 평균 rank | 결정 |
+|---|---:|---:|---|
+| KoE5 (query:) — 옛 PR #21 | 0/8 | 802 | 옛 |
+| **KoE5 (passage:)** ★ | **3/8** | 1,201 | **선정** |
+| KoE5 (no prefix) | 0/8 | 3,000 | X |
+| KURE | 0/8 | 22,946 | X (동음이의어 분리 부작용) |
+| Hybrid concat (KoE5+KURE) | 0/8 | 2,975 | X |
+
+**KoE5 (passage:) 의 과일 rank**: 수박 30위 (옛 244위) / 레몬 43위 (옛 453위) / 바나나 66위 (옛 118위) / 망고 131위 (옛 472위) / 딸기 217위 (옛 563위) / 포도 264위 (옛 874위) / 복숭아 269위 (옛 1,099위). **배만 8,588위 (옛 2,590위) 로 악화** — specific case, 게임 영향 미미.
+
+### 사전 swap — KoE5 (query:) → KoE5 (passage:)
+
+- 백업: `embedding_dictionary_e5.backup_query_*.json` (옛 query prefix 사전)
+- 메인: `embedding_dictionary_e5.json` 을 passage prefix 로 교체
+- game.py 의 동적 `sim_alpha` 분포 흡수 (PR #17 검증 패턴)
+
+### 게임 테스트 실측 (정답 "사과")
+- `sim_top1000_raw=0.6890, SIM_ALPHA=1.2402` 자연 분포
+- top: 과일 0.768 / 수박 0.725 / 레몬 0.712 / 바나나 0.699 / 파랑 0.610 / 빨강 0.605
+- **과일 4개 top 4 차지** — 사용자 통증 ("과일 점수 안 나옴") 완전 해소
+- 미세 fail: 빨강 < 파랑 (0.005 차) — 임베딩 specific case 한계, 게임 진행 영향 X
+
+### 사전 변경 영역
+- 메인 사전: KoE5 query → KoE5 passage (60k, dim=1024)
+- 임시 임베딩 사전들 (koe5_noprefix·hybrid_concat·kure 등) 은 작업 후 삭제 (디스크 5-6GB 회수)
 
 ### 다음 PR
 **★ `feat/storage-binary-format`** — JSON 1.3GB × 다수 → npy ~250MB (80% 절약) binary 형식 변환. `src/core/embeddings.py` 의 로드 코드 수정 필요. 디스크 관리 측면 큰 효과.
