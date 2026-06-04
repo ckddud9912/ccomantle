@@ -1,5 +1,7 @@
 import asyncio
+import json
 import math
+import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -10,6 +12,15 @@ from core.embeddings import EmbeddingStore
 
 MAX_ROUNDS = 6
 TARGET_TOP1000 = 0.63  # 1000위 목표 유사도
+
+# LLM boost 캐시 위치. tools/llm_boost/extract_attributes.py 가 정답 단어마다
+# {data/answer_boost_cache/<word>.json} 형태로 속성·연관 단어 저장.
+# 캐시 있으면 정답 vector 를 그 속성 단어들의 평균 vector 와 결합 (alpha 비율) →
+# "사과 → 빨강" 같은 자유 연상 직관 보정.
+_BOOST_CACHE_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "..", "data", "answer_boost_cache"
+)
+BOOST_ALPHA = 0.3  # 0=원본 only, 1=boost only. 0.3 = cosine 70% + LLM 30%
 
 
 def _scale_positive(arr: np.ndarray, alpha: float) -> np.ndarray:
@@ -54,12 +65,62 @@ class GameState:
 
         async with self._lock:
             self.answer_word = answer
-            self.answer_vector = self.store.vector(answer)
+            original_vector = self.store.vector(answer)
+            self.answer_vector = self._apply_llm_boost(original_vector, answer)
             self.rounds = {i: [] for i in range(1, MAX_ROUNDS + 1)}
             self.current_round = 1
             self.finished = False
             self.team_colors = {}
             self._compute_rankings()
+
+    def _apply_llm_boost(self, answer_vec: np.ndarray, answer_word: str) -> np.ndarray:
+        """LLM boost 캐시 있으면 정답 vector + 속성 vector 평균 결합.
+
+        - cache: data/answer_boost_cache/<word>.json
+            (tools/llm_boost/extract_attributes.py 산출)
+        - 결합: enhanced = (1-α)·answer + α·boost_avg, L2 정규화
+        - 캐시 없거나 boost 단어가 사전에 0개면 원본 그대로 (graceful fallback)
+        """
+        cache_path = os.path.join(_BOOST_CACHE_DIR, f"{answer_word}.json")
+        if not os.path.exists(cache_path):
+            return answer_vec
+
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"[WARN] LLM boost 캐시 로드 실패 ({answer_word}): {e}")
+            return answer_vec
+
+        # 속성 + 연관 단어 합집합 (중복 제거, 사전에 있는 것만)
+        boost_words = set(cache.get("attributes", []) + cache.get("related_words", []))
+        boost_words.discard(answer_word)  # 정답 자체 제외 (self-similarity 1.0)
+
+        boost_vectors = [
+            self.store.matrix[self.store.word_to_idx[w]]
+            for w in boost_words
+            if w in self.store.word_to_idx
+        ]
+
+        if not boost_vectors:
+            print(f"[INFO] LLM boost: '{answer_word}' 캐시 있지만 사전에 매칭되는 boost 단어 0개")
+            return answer_vec
+
+        boost_avg = np.mean(boost_vectors, axis=0)
+        norm = np.linalg.norm(boost_avg)
+        if norm > 0:
+            boost_avg = boost_avg / norm
+
+        enhanced = (1.0 - BOOST_ALPHA) * answer_vec + BOOST_ALPHA * boost_avg
+        enhanced_norm = np.linalg.norm(enhanced)
+        if enhanced_norm > 0:
+            enhanced = enhanced / enhanced_norm
+
+        print(
+            f"[INFO] LLM boost 적용: '{answer_word}' — "
+            f"boost {len(boost_vectors)}/{len(boost_words)} 단어 매칭, alpha={BOOST_ALPHA}"
+        )
+        return enhanced
 
     def _compute_rankings(self) -> None:
         sims = self.store.matrix @ self.answer_vector  # (N,)
