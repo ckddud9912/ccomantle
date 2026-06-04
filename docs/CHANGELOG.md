@@ -1,5 +1,38 @@
 # Refactoring Changelog
 
+## [23번] docs 갱신 — KoE5 passage + NPZ 형식 + 새 도구 사이클 반영 (2026-06-04)
+
+### 배경
+PR #20-#22 의 임베딩 모델 교체·튜닝·저장 형식 변환 후 README + features/04 + .env.example 이 옛 정보 (multilingual-e5 / .json) 기준이라 갱신 필요.
+
+### 변경 내용
+
+**1. `README.md` — 5곳 갱신**
+- 주요 기능·빠른 시작·기술 스택 표·환경변수 표 — KoE5 / NPZ 반영
+- 임베딩 직접 생성하기 § 재구성 — Path A (FastText 부터) + Path B (기존 사전 보강) + 모델 비교/교체 흐름
+- 사전 품질 진행 상황 §는 PR #15-#23 누적 박제 (60k / KoE5 passage / NPZ 82% 절약 / 과일 top 4)
+
+**2. `docs/features/04_preprocessing.md` — 전면 재구성**
+- 옛: 1회성 추출 + e5 raw/scaled JSON 흐름
+- 새: 4-단계 사이클 (단어 추출 → 임베딩 → 저장 → HF 배포). 각 단계의 진단·교체·튜닝 도구 표
+- 모델 비교 결과 표 (multilingual-e5 / KoE5 (query/passage) / KURE / Hybrid)
+- spot-check ipynb 카탈로그 + findings_*.md 패턴 안내
+
+**3. `.env.example` — `EMBEDDING_HF_FILE` default 가 .npz 라는 점 명시 (사용자 갱신본)**
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `README.md` | KoE5 passage + NPZ 반영, 임베딩 생성 § 재구성 |
+| `docs/features/04_preprocessing.md` | 전면 재구성 (도구 사이클 반영) |
+| `.env.example` | `.npz` default 명시 |
+| `docs/CHANGELOG.md` | 본 항목 |
+
+### API 변경
+없음. 문서만.
+
+---
+
 ## [22번] 임베딩 저장 format JSON → NPZ (1.3GB → 235MB, 82% 절약) (2026-06-03)
 
 ### 배경

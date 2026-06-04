@@ -22,14 +22,14 @@ license: mit
 - 📱 **QR 모바일 즉시 참가** — 별도 앱 설치 X, 브라우저만으로
 - 👥 **실시간 리더보드** — 팀명·팀색 입력, 내 팀 행 하이라이트, 막대 색상 그라디언트 (가까울수록 초록)
 - 🛠 **운영자 페이지** — 정답 설정 · 라운드 제어 · 경기 종료 · 게임 재시작 · 참여 팀 누락 검사 · top1000 단어 조회
-- 🔬 **한국어 약 55,000 단어 사전계산 임베딩** (multilingual-e5-large + mecab-ko-dic NNG 어휘 보강)
+- 🔬 **한국어 60,000 단어 사전계산 임베딩** ([KoE5](https://huggingface.co/nlpai-lab/KoE5) — 한국어 특화 모델, passage prefix) + 외부 사전 (mecab/우리말샘) 으로 어휘 보강. 저장 형식 NPZ binary (~235MB)
 - 🐳 **`docker compose up` 한 줄 실행** + `.env` 자동 로드 (도커/비도커 양쪽)
 
 ---
 
 ## 🚀 빠른 시작
 
-> **📦 임베딩 파일이 필요합니다** (한국어 약 55,000 단어 사전계산 벡터, 수백 MB).
+> **📦 임베딩 파일이 필요합니다** (한국어 60,000 단어 사전계산 벡터, NPZ ~235MB).
 > 아래 두 가지 경로 중 하나로 받으세요. 둘 다 안 한 상태로 실행하면 서버는 뜨지만 게임 라우트가 503을 반환합니다 (`/health`로 확인 가능).
 
 ### 옵션 A: 도커로 실행 (권장)
@@ -50,7 +50,7 @@ cp .env.example .env
 
 **A-2. 파일을 직접 받아 두기**
 
-`data/embedding_dictionary_e5.json` 위치에 파일을 직접 두세요. 도커가 이 폴더를 컨테이너에 마운트하므로 `.env` 설정은 필요 없습니다.
+`data/embedding_dictionary_e5.npz` 위치에 파일을 직접 두세요 (옛 `.json` 도 지원하지만 `.npz` 가 약 80% 작음). 도커가 이 폴더를 컨테이너에 마운트하므로 `.env` 설정은 필요 없습니다.
 
 #### 2. 실행
 
@@ -112,7 +112,7 @@ http://localhost:7860 으로 접속.
 |---|---|
 | Backend | FastAPI + asyncio (단일 워커, asyncio.Lock 으로 동시 제출 직렬화) |
 | Frontend | 정적 HTML/CSS/JS (vanilla, 모바일 우선) |
-| 임베딩 | multilingual-e5-large 한국어 약 55,000 단어 사전계산 (L2 normalized, float32). FastText 50k 기반 + mecab-ko-dic NNG 누락 명사 5,000 보강 |
+| 임베딩 | [KoE5](https://huggingface.co/nlpai-lab/KoE5) (multilingual-e5 한국어 finetune) 60,000 단어 사전계산 (L2 normalized, float32, NPZ binary). FastText 50k 기반 + mecab-ko-dic·우리말샘 보강 누락 명사 ~10,000 + 한국어 의미 cluster 정상화 (PR #21·#22) |
 | 인프라 | Docker Compose + `.env` 자동 로드 + HF Hub 자동 다운로드 + `/health` graceful startup |
 
 자세한 구조는 [docs/features/](docs/features/) 참고.
@@ -124,15 +124,17 @@ http://localhost:7860 으로 접속.
 | 변수 | 기본값 | 설명 |
 |---|---|---|
 | `EMBEDDING_HF_REPO` | (없음) | HF Hub repo. 비어있으면 다운로드 시도 안 함 |
-| `EMBEDDING_HF_FILE` | `embedding_dictionary_e5.json` | HF 내 파일명 |
+| `EMBEDDING_HF_FILE` | `embedding_dictionary_e5.npz` | HF 내 파일명 (옛 `.json` 도 지원, `.npz` 가 약 80% 작음) |
 | `EMBEDDING_HF_TYPE` | `dataset` | `dataset` / `model` / `space` |
-| `EMBEDDING_FILE` | `data/embedding_dictionary_e5.json` | 로컬 임베딩 파일 절대경로 |
+| `EMBEDDING_FILE` | 자동 (`.npz` 우선 → `.json` fallback) | 로컬 임베딩 파일 경로. 명시 안 하면 `data/embedding_dictionary_e5.npz` 우선 시도, 없으면 `.json` |
 
 ---
 
 ## 🛠 임베딩 파일 직접 생성하기
 
-기존 파일을 받지 않고 처음부터 만들고 싶다면:
+기존 파일을 받지 않고 처음부터 만들고 싶다면 두 path 중 선택:
+
+### Path A: FastText 부터 (전통, 시간 듦)
 
 ```bash
 pip install -r requirements-dev.txt
@@ -144,17 +146,42 @@ pip install -r requirements-dev.txt
 export FASTTEXT_VEC_PATH=/실제/받은/경로/cc.ko.300.vec   # ← 실제 경로로 교체
 python src/make_words_from_vec.py
 
-# 3. E5 임베딩 생성 (Apple Silicon MPS / NVIDIA CUDA 자동, CPU 시 30분~)
-python src/E5_embedding_ver2.py
+# 3. 임베딩 생성 — KoE5 (한국어 특화, passage prefix)
+python tools/embedding_eval/build_alt_embeddings.py \
+  --model nlpai-lab/KoE5 \
+  --output data/embedding_dictionary_e5.json \
+  --prefix "passage: "
 
-# 4. (선택) mecab-ko-dic 누락 명사 5,000 보강 — FastText 안 받아도 됨
-python tools/dict_quality/coverage_check.py   # 누락 단어 후보 식별
-python tools/dict_quality/expand_dict.py      # 새 단어만 임베딩 + 머지 (~17초, MPS)
+# 4. (선택) 사전 어휘 보강 — mecab-ko-dic / 우리말샘 사전과 diff
+python tools/dict_quality/coverage_check.py    # mecab vs 본인 사전
+python tools/dict_quality/diff_urimalsaem.py   # 우리말샘 vs 본인 사전 (POS 별)
+python tools/dict_quality/expand_dict.py       # 후보 단어 임베딩 추가 머지
+
+# 5. (권장) JSON → NPZ 변환 (~80% 절약)
+python tools/storage/convert_to_npz.py
+```
+
+### Path B: 기존 사전 받아서 + 보강만
+
+HF Hub 의 60k 사전 (`leo4study/ccomantle-embeddings`) 받아두면 위 1-3 단계 skip 가능. 이후 4-5 만 진행.
+
+### 임베딩 모델 비교 / 교체
+
+대안 모델 비교 (KoE5 vs KURE 등):
+```bash
+python tools/embedding_eval/build_alt_embeddings.py --model nlpai-lab/KURE-v1 --prefix "" --output data/embedding_dictionary_kure.json
+# notebooks/embedding_model_comparison.ipynb 또는 embedding_tuning_comparison.ipynb 에서 spot-check
+# apply_scaling_and_swap.py 로 swap (scaling 시도 후 raw 그대로 가능)
 ```
 
 자세한 내용은 [docs/features/04_preprocessing.md](docs/features/04_preprocessing.md), 평가 방법론은 [docs/features/05_evaluation_methodology.md](docs/features/05_evaluation_methodology.md) 참고.
 
-> 🟢 **사전 품질 진행 상황**: ko-FastText 50,000 단어에서 시작 → mecab-ko-dic NNG 와의 coverage 측정 (4.81%) → 흔한 누락 명사 5,000개 보강 (coverage 7.25%). 1글자 명사("끝"·"꿈") + 부사 패턴에 잘못 잡혔던 명사("가게"·"무게") 다수 회복. 활용형 중복 정리·한국어 특화 임베딩(KoE5/KURE) 교체는 다음 트랙.
+> 🟢 **사전 품질 진행 상황 (PR #15-#23 누적)**:
+> - 어휘: ko-FastText 50,000 단어 → mecab+우리말샘 누락 명사 보강으로 **60,000 단어**
+> - 모델: multilingual-e5-large → **KoE5 (한국어 특화) passage prefix** — 과일 cross-check 정상화 (PR #21)·prefix 변경 (PR #22)
+> - 형식: JSON 1.3GB → **NPZ 235MB (82% 절약)** (PR #23)
+> - 1글자 명사 ("끝"·"꿈") + 부사 패턴 명사 ("가게"·"무게") 다수 회복. 게임에서 "사과" 정답 시 과일 4개 (수박·딸기·포도·배) top 4 차지
+> - 다음 트랙: 활용형 중복 정리, sim_alpha 보정 강화, KorLex Golden 정량 평가
 
 ---
 
