@@ -1,5 +1,74 @@
 # Refactoring Changelog
 
+## [24번] LLM boost 도입 — 정답 단어 의미 보정 (Gemini Flash + vector 결합) (2026-06-04)
+
+### 배경
+PR #22 KoE5 passage 교체 후에도 임베딩 본질 한계 잔존 — 사용자가 "사과는 빨강이 파랑보다 가까워야" 같은 자유 연상 직관과 점수가 미스매치. 임베딩 모델은 표면 동시발생 통계로만 의미 학습 → "사과 = 빨갛다" 같은 상식은 LLM 의 reasoning 영역. 운영자가 정답 설정 시 LLM 으로 의미 속성·연관 단어 추출 → 임베딩 vector 결합 보정.
+
+### 변경 내용
+
+**1. `tools/llm_boost/extract_attributes.py` (신규)**
+- Gemini Flash API 호출 → 정답 단어의 의미 속성·연관 단어 JSON 추출
+- 캐시 자동: `data/answer_boost_cache/<word>.json`
+- `--force` 옵션 (캐시 무시 재추출), `--word` / `--words` 입력
+- 모델: `gemini-flash-lite-latest` (Free tier 안정, ~2초 latency)
+- Prompt 에 활용형 명시: "달콤" + "달콤한" + "달콤하다" 같이 추출 (사용자 추측 형태 매칭)
+
+**2. `src/core/game.py` 수정 — `_apply_llm_boost`**
+- 정답 설정 시 cache 로드 → 정답 vector 와 boost vector (속성·연관 단어 임베딩 평균) 결합
+- `enhanced = (1-α)·answer + α·boost_avg`, α=0.3, L2 정규화
+- Cache 없으면 원본 vector 그대로 (backward compat — 옛 정답엔 영향 0)
+- Boost 단어가 사전에 0개여도 graceful fallback
+
+**3. 운영 흐름**
+```
+운영자가 정답 "사과" 설정
+  → tools/llm_boost/extract_attributes.py --word 사과  (1회만)
+  → cache 저장
+  → /set_answer 호출 시 game.py 가 cache 로드 + boost 적용
+  → 다음에 같은 정답이면 cache 재사용 (LLM 호출 X)
+```
+
+### 비용
+- Gemini Flash Free tier (1500 RPD) 안. **$0**
+- 운영자 한 명이 하루 정답 5-20번 설정 — 한도의 1% 미만
+- 신용카드 등록 X
+
+### 실측 (정답 "사과", cache 활용형 포함 ver)
+- Cache: 속성 20개 (빨강·빨간·빨갛다·달콤·달콤한·달콤하다·아삭·아삭한·아삭하다·둥근·둥글다·둥글기·과일·...) + 연관 29개
+- `sim_top1000_raw=0.7447, SIM_ALPHA=1.5672, boost 29/46 단어 매칭`
+- 게임 점수 (사용자 직관 비교):
+  - **달콤 0.636 > 파랑 0.618** — 직관 정렬 ✓ (옛 KoE5: 달콤 점수 측정 X, 추정 0.55)
+  - 야채 0.704 / 과일 ≈ / 주스 0.573 — 카테고리 단어 boost ↑
+- 한계: 빨강 0.618 = 파랑 0.618 (동등) — 임베딩 색깔 cluster 본질 한계. boost 로도 못 풀음. fine-tuning 영역
+
+### 결정한 정책
+- α=0.3 (cosine 70% + boost 30%) — 회귀 방지 + 효과 명확
+- Free tier Gemini Flash — 비용 0
+- Cache 영구 보존 (운영자가 정답 재사용)
+
+### 변경된 파일
+| 파일 | 내용 |
+|---|---|
+| `tools/llm_boost/extract_attributes.py` (신규) | LLM 호출 + 캐시 도구 |
+| `src/core/game.py` | `_apply_llm_boost` + reset_for_answer 통합 |
+| `docs/CHANGELOG.md` | 본 항목 |
+
+### API 변경
+없음. 캐시 없으면 옛 동작 100% 동일 (backward compat).
+
+### 알려진 한계 + 다음 PR
+1. **활용형 통합 부재** — 사용자가 "달콤한" 입력해도 cache 의 "달콤" 과 별 vector. 미세 fail
+2. **임베딩 색깔 cluster** — 빨강·파랑 동등. boost 로도 본질 한계
+3. **자두·귤·참외 같은 흔한 명사 누락** — PR #19 어휘 한계 재확인
+
+→ **`feat/dict-cleanup-activations`** 가 1·2 일부 해결 (활용형 합치면 색깔 cluster 도 약간 풀림). 다음 PR 후속.
+
+### Future 마이그레이션
+- `google.generativeai` 패키지가 deprecated. 미래에 `google.genai` 새 SDK 로 마이그레이션 (별 PR `chore/google-genai-migration`)
+
+---
+
 ## [23번] docs 갱신 — KoE5 passage + NPZ 형식 + 새 도구 사이클 반영 (2026-06-04)
 
 ### 배경
