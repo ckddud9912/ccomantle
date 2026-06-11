@@ -54,7 +54,8 @@ def _try_hf_download() -> bool:
         return False
 
     # 빈 문자열도 미설정으로 간주 → 기본값 사용
-    filename = os.environ.get("EMBEDDING_HF_FILE") or "embedding_dictionary_e5.json"
+    # default 가 .npz (PR #23 이후 권장 포맷, ~80% 작음). 옛 .json 은 env 로 명시.
+    filename = os.environ.get("EMBEDDING_HF_FILE") or "embedding_dictionary_e5.npz"
     repo_type = os.environ.get("EMBEDDING_HF_TYPE") or "dataset"
 
     try:
