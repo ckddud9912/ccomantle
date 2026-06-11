@@ -43,7 +43,7 @@ license: mit
 ```bash
 cp .env.example .env
 # .env 파일을 열어 EMBEDDING_HF_REPO 값 입력. 예:
-# EMBEDDING_HF_REPO=leon4study/ccomantle-embeddings
+# EMBEDDING_HF_REPO=leo4study/ccomantle-embeddings
 ```
 
 컨테이너 첫 기동 시 자동 다운로드 후 `data/` 에 캐싱됩니다.

@@ -174,7 +174,9 @@ poetry.toml
 pyrightconfig.json
 
 
-/data
+# data/ 내용물(임베딩·사전 등 대용량)은 제외하되, 폴더 자체는 clone 시 보이도록 .gitkeep 만 추적
+/data/*
+!/data/.gitkeep
 # macOS
 .DS_Store
 
